@@ -1,0 +1,17 @@
+{
+  "name": "ayudar-trazable-fullstack",
+  "version": "1.0.0",
+  "description": "Red vecinal comunal conectada y verificada con DNI, PostGIS y alertas en tiempo real",
+  "scripts": {
+    "start": "npm run start:all",
+    "dev": "npm run dev:client",
+    "dev:all": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build:server": "npm run build --prefix server"
+  },
+  "keywords": ["vecinos", "comuna", "dni", "postgis", "ayudar-trazable", "expo", "react"],
+  "author": "Ayudar Trazable Team",
+  "license": "MIT"
+}

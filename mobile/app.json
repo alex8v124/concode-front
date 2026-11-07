@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Ayudar Trazable",
+    "slug": "ayudar-trazable",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#144e40"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ayudartrazable.vecinal"
+    },
+    "android": {
+      "package": "com.ayudartrazable.vecinal",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#144e40"
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite acceder a la cámara para escanear y validar tu DNI de forma segura."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permite ubicar tu domicilio para conectarte con los vecinos de tu cuadrante."
+        }
+      ]
+    ]
+  }
+}
