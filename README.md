@@ -114,8 +114,8 @@ El código de la aplicación nativa React Native con Expo se encuentra en la car
 
 #### 📲 Descargar el Instalador APK Directo:
 Puedes instalar la aplicación de inmediato en cualquier celular Android:
-- **[Descargar instalador APK (.apk)](https://expo.dev/artifacts/eas/N_HE0FXRzMV9vGUnJ3Ara1Bm_GzY_o_wOgNNqysy1yk.apk)**
-- **[Escanear código QR en Expo Dashboard](https://expo.dev/accounts/nt_alex8v/projects/ayudar-trazable/builds/221eb1ad-921e-4824-9f0c-b55d87f8807e)**
+- **[Descargar instalador APK (.apk)](https://expo.dev/artifacts/eas/sxSD5V9kgmaYAd4-AG1oXWS1rnxnyfdfYa8_VIk_xyE.apk)**
+- **[Escanear código QR en Expo Dashboard](https://expo.dev/accounts/nt_alex8v/projects/ayudar-trazable/builds/81842e42-1b98-4b6c-8c4d-8b87ec70af2d)**
 
 #### 🛠️ Cómo compilar el APK desde cualquier PC:
 En la raíz del proyecto (o dentro de `/mobile`) simplemente ejecuta:
