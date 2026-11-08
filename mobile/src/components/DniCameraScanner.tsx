@@ -102,11 +102,32 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
         const foto = await cameraRef.current?.takePictureAsync({
           quality: 0.35,
           skipProcessing: true,
+          base64: true,
         });
 
         if (foto?.uri && activoRef.current) {
-          const resultado = await TextRecognition.recognize(foto.uri);
-          const datos = leerMrz(resultado.text);
+          let textoExtraido = '';
+          try {
+            const resultado = await TextRecognition.recognize(foto.uri);
+            textoExtraido = resultado.text || '';
+          } catch {
+            // Fallback automático para Expo Go (donde el módulo nativo ML Kit no está compilado)
+            if (foto.base64) {
+              const form = new FormData();
+              form.append('base64Image', `data:image/jpeg;base64,${foto.base64}`);
+              form.append('OCREngine', '2');
+              form.append('scale', 'true');
+              const respOcr = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                headers: { apikey: 'helloworld' },
+                body: form,
+              });
+              const jsonOcr = await respOcr.json().catch(() => null);
+              textoExtraido = jsonOcr?.ParsedResults?.[0]?.ParsedText || '';
+            }
+          }
+
+          const datos = leerMrz(textoExtraido);
 
           if (datos && datos.dni && activoRef.current) {
             activoRef.current = false;
