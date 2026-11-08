@@ -17,6 +17,10 @@ import { MensajesScreen } from './MensajesScreen';
 import { FavorDetalleScreen } from './FavorDetalleScreen';
 import { PublicarFlowScreen, PublicacionData } from './PublicarFlowScreen';
 import { DirectorioEmergenciaScreen } from './DirectorioEmergenciaScreen';
+import { PerfilVecinoScreen, VecinoPerfilData } from './PerfilVecinoScreen';
+import { EscribirResenaModal } from './EscribirResenaModal';
+import { MiPerfilScreen } from './MiPerfilScreen';
+import { MiActividadScreen } from './MiActividadScreen';
 
 interface Props {
   userData: {
@@ -139,6 +143,8 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   const [modalPerfilVisible, setModalPerfilVisible] = useState(false);
   const [panicoEnviado, setPanicoEnviado] = useState(false);
   const [enviandoPanico, setEnviandoPanico] = useState(false);
+  const [selectedVecino, setSelectedVecino] = useState<VecinoPerfilData | null>(null);
+  const [modalEscribirResenaVisible, setModalEscribirResenaVisible] = useState(false);
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
 
@@ -161,6 +167,44 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
     setItemsList(prev => [nuevo, ...prev]);
     setCategoriaActiva(esServicio ? 'servicios' : 'favores');
   };
+
+  // Si está viendo el perfil de otro vecino
+  if (selectedVecino) {
+    return (
+      <>
+        <PerfilVecinoScreen
+          vecino={selectedVecino}
+          onBack={() => setSelectedVecino(null)}
+          onOpenEscribirResena={() => setModalEscribirResenaVisible(true)}
+          onContactar={() => {
+            setSelectedVecino(null);
+            setVistaSecundaria('mensajes');
+          }}
+        />
+        <EscribirResenaModal
+          visible={modalEscribirResenaVisible}
+          onClose={() => setModalEscribirResenaVisible(false)}
+          targetNeighbor={{
+            nombre: selectedVecino.nombre,
+            iniciales: selectedVecino.iniciales,
+            rubro: selectedVecino.rubro,
+          }}
+          onSubmitSuccess={(review) => {
+            setItemsList(prev => prev.map(item => {
+              if (item.id === selectedVecino.id) {
+                return {
+                  ...item,
+                  vistosBuenos: item.vistosBuenos + 1,
+                  calificacion: Math.round(((item.calificacion * 18 + review.rating) / 19) * 10) / 10,
+                };
+              }
+              return item;
+            }));
+          }}
+        />
+      </>
+    );
+  }
 
   // Si está en la pantalla de Publicar (Flujo 3 pasos + éxito)
   if (vistaSecundaria === 'publicar') {
@@ -190,7 +234,12 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
   // Si está en el Detalle de Favor
   if (vistaSecundaria === 'favor_detalle') {
-    return <FavorDetalleScreen onBack={() => setVistaSecundaria('ninguna')} />;
+    return (
+      <FavorDetalleScreen 
+        onBack={() => setVistaSecundaria('ninguna')} 
+        onPedirPrestado={() => setVistaSecundaria('mensajes')} 
+      />
+    );
   }
 
   const listaFiltrada = itemsList.filter(item => {
@@ -221,9 +270,36 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   return (
     <View style={styles.mainWrapper}>
       
-      {/* Vista de Tab Mapa */}
+      {/* Vista de Tab Mapa, Actividad, Perfil o Inicio */}
       {tabActiva === 'mapa' ? (
-        <BarrioMapaScreen userData={userData} />
+        <BarrioMapaScreen 
+          userData={userData} 
+          onSelectNeighbor={(neighborId) => {
+            const item = itemsList.find(i => i.id === neighborId) || SERVICIOS_MOCK[0];
+            if (item.categoria === 'favores') {
+              setVistaSecundaria('favor_detalle');
+            } else {
+              setSelectedVecino({
+                id: item.id,
+                iniciales: item.iniciales,
+                nombre: item.nombre,
+                rubro: item.rubro,
+                distancia: item.distancia,
+                ubicacion: 'Mz. D, Los Pinos',
+                vistosBuenos: item.vistosBuenos,
+                calificacion: item.calificacion,
+                resenasCount: 18,
+              });
+            }
+          }}
+        />
+      ) : tabActiva === 'actividad' ? (
+        <MiActividadScreen 
+          onOpenChat={() => setVistaSecundaria('mensajes')}
+          onOpenPublicar={() => setVistaSecundaria('publicar')}
+        />
+      ) : tabActiva === 'perfil' ? (
+        <MiPerfilScreen userData={userData} onLogout={onLogout} />
       ) : (
         /* Vista de Tab Inicio */
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -329,7 +405,17 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
                   if (item.categoria === 'favores') {
                     setVistaSecundaria('favor_detalle');
                   } else {
-                    Alert.alert(item.nombre, `${item.rubro}\n${item.detalle}\nUbicado a ${item.distancia} de tu casa.`);
+                    setSelectedVecino({
+                      id: item.id,
+                      iniciales: item.iniciales,
+                      nombre: item.nombre,
+                      rubro: item.rubro,
+                      distancia: item.distancia,
+                      ubicacion: 'Mz. D, Los Pinos',
+                      vistosBuenos: item.vistosBuenos,
+                      calificacion: item.calificacion,
+                      resenasCount: 18,
+                    });
                   }
                 }}
               >
@@ -419,10 +505,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         {/* Actividad */}
         <TouchableOpacity 
           style={styles.navItem} 
-          onPress={() => {
-            setTabActiva('actividad');
-            Alert.alert('Actividad Vecinal', 'No hay alertas activas en tu cuadrante en las últimas 2 horas. Todo en orden.');
-          }}
+          onPress={() => setTabActiva('actividad')}
           activeOpacity={0.7}
         >
           <Feather name="list" size={22} color={tabActiva === 'actividad' ? '#144e40' : '#6b7280'} />
@@ -432,7 +515,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         {/* Perfil */}
         <TouchableOpacity 
           style={styles.navItem} 
-          onPress={() => setModalPerfilVisible(true)}
+          onPress={() => setTabActiva('perfil')}
           activeOpacity={0.7}
         >
           <Feather name="user" size={22} color={tabActiva === 'perfil' ? '#144e40' : '#6b7280'} />

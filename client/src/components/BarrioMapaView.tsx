@@ -102,7 +102,11 @@ const FILTER_TAGS = ['Todos', 'Gasfitería', 'Electricidad', 'Clases'];
 const BASE_LAT = -12.0905;
 const BASE_LNG = -76.9902;
 
-export const BarrioMapaView: React.FC = () => {
+interface BarrioMapaViewProps {
+  onSelectNeighbor?: (neighbor: any) => void;
+}
+
+export const BarrioMapaView: React.FC<BarrioMapaViewProps> = ({ onSelectNeighbor }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -353,7 +357,10 @@ export const BarrioMapaView: React.FC = () => {
         </div>
 
         {selectedNeighbor && (
-          <div className="flex items-center gap-3">
+          <div 
+            onClick={() => onSelectNeighbor?.(selectedNeighbor)}
+            className="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-50 transition cursor-pointer"
+          >
             <div className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center font-bold text-sm shrink-0">
               {selectedNeighbor.initials}
             </div>

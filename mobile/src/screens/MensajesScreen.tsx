@@ -88,6 +88,122 @@ const CHAT_FILTERS = ['Todos', 'Servicios', 'Favores', 'Grupos'];
 export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [selectedChat, setSelectedChat] = useState<ChatItem | null>(null);
+  const [mensajeTexto, setMensajeTexto] = useState('');
+  const [mensajesThread, setMensajesThread] = useState<Record<string, Array<{ id: string; texto: string; remitente: 'yo' | 'otro'; hora: string }>>>({
+    '1': [
+      { id: 'm1', texto: 'Hola Rosa, buenas noches. ¿Tendrás disponibilidad para revisar una fuga en mi cocina mañana?', remitente: 'yo', hora: '22:50' },
+      { id: 'm2', texto: 'Hola vecino. Sí, claro, revisé tu mensaje.', remitente: 'otro', hora: '23:02' },
+      { id: 'm3', texto: 'Puedo pasar mañana a las 9, ¿le parece bien?', remitente: 'otro', hora: '23:05' }
+    ],
+    '2': [
+      { id: 'm1', texto: 'Hola Julio, vi tu publicación del taladro percutor con brocas.', remitente: 'yo', hora: '21:30' },
+      { id: 'm2', texto: '¡Hola! Sí, aún está disponible para este fin de semana.', remitente: 'otro', hora: '21:35' },
+      { id: 'm3', texto: 'Te lo dejo en la portería el sábado temprano.', remitente: 'otro', hora: '21:40' }
+    ]
+  });
+
+  const handleEnviarMensaje = () => {
+    if (!mensajeTexto.trim() || !selectedChat) return;
+    const nuevo = {
+      id: Date.now().toString(),
+      texto: mensajeTexto.trim(),
+      remitente: 'yo' as const,
+      hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setMensajesThread(prev => ({
+      ...prev,
+      [selectedChat.id]: [...(prev[selectedChat.id] || []), nuevo]
+    }));
+    setMensajeTexto('');
+  };
+
+  // ------------------- VISTA CONVERSACIÓN ACTIVA -------------------
+  if (selectedChat) {
+    const thread = mensajesThread[selectedChat.id] || [
+      { id: 'def1', texto: `Hola, bienvenido al chat interno vecinal con ${selectedChat.name}.`, remitente: 'otro', hora: selectedChat.time }
+    ];
+
+    return (
+      <View style={styles.container}>
+        {/* Cabecera del chat */}
+        <View style={styles.chatDetailHeader}>
+          <TouchableOpacity onPress={() => setSelectedChat(null)} style={styles.backBtn} activeOpacity={0.7}>
+            <Feather name="chevron-left" size={24} color="#111827" />
+          </TouchableOpacity>
+
+          <View style={[styles.avatarSmall, { backgroundColor: selectedChat.avatarBg }]}>
+            <Text style={[styles.avatarTextSmall, { color: selectedChat.avatarColor }]}>
+              {selectedChat.avatarInitials}
+            </Text>
+          </View>
+
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.chatDetailName}>{selectedChat.name}</Text>
+            <Text style={styles.chatDetailSub}>{selectedChat.subtitle}</Text>
+          </View>
+
+          <View style={styles.secureTag}>
+            <Feather name="shield" size={12} color="#144e40" />
+            <Text style={styles.secureTagText}>Verificado</Text>
+          </View>
+        </View>
+
+        {/* Mensajes */}
+        <ScrollView contentContainerStyle={styles.messagesContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.chatEncryptionNotice}>
+            <Feather name="lock" size={13} color="#144e40" />
+            <Text style={styles.chatEncryptionNoticeText}>
+              Chat cifrado entre vecinos de Los Pinos. Tu número no es público.
+            </Text>
+          </View>
+
+          {thread.map(msg => (
+            <View 
+              key={msg.id} 
+              style={[
+                styles.messageBubbleWrapper, 
+                msg.remitente === 'yo' ? styles.bubbleWrapperRight : styles.bubbleWrapperLeft
+              ]}
+            >
+              <View 
+                style={[
+                  styles.messageBubble, 
+                  msg.remitente === 'yo' ? styles.bubbleRight : styles.bubbleLeft
+                ]}
+              >
+                <Text style={[styles.bubbleText, msg.remitente === 'yo' ? styles.bubbleTextRight : styles.bubbleTextLeft]}>
+                  {msg.texto}
+                </Text>
+                <Text style={[styles.bubbleTime, msg.remitente === 'yo' ? styles.bubbleTimeRight : styles.bubbleTimeLeft]}>
+                  {msg.hora}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Input para responder */}
+        <View style={styles.inputBar}>
+          <TextInput 
+            style={styles.chatInput}
+            placeholder={`Escribe a ${selectedChat.name.split(' ')[0]}...`}
+            placeholderTextColor="#9ca3af"
+            value={mensajeTexto}
+            onChangeText={setMensajeTexto}
+          />
+          <TouchableOpacity 
+            style={[styles.sendBtn, !mensajeTexto.trim() && styles.sendBtnDisabled]}
+            onPress={handleEnviarMensaje}
+            disabled={!mensajeTexto.trim()}
+            activeOpacity={0.8}
+          >
+            <Feather name="send" size={18} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -138,7 +254,12 @@ export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
       {/* Lista de Chats */}
       <ScrollView contentContainerStyle={styles.chatsList} showsVerticalScrollIndicator={false}>
         {CHATS_MOCK.map(chat => (
-          <TouchableOpacity key={chat.id} style={styles.chatRow} activeOpacity={0.7}>
+          <TouchableOpacity 
+            key={chat.id} 
+            style={styles.chatRow} 
+            activeOpacity={0.7}
+            onPress={() => setSelectedChat(chat)}
+          >
             <View style={[styles.avatar, { backgroundColor: chat.avatarBg }, chat.isOfficial && styles.avatarOfficial]}>
               <Text style={[styles.avatarText, { color: chat.avatarColor }]}>
                 {chat.avatarInitials}
@@ -351,5 +472,148 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     flex: 1,
     fontWeight: '500',
+  },
+  // Estilos del chat activo
+  chatDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+  },
+  avatarSmall: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarTextSmall: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  chatDetailName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  chatDetailSub: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginTop: 1,
+  },
+  secureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#e6f0ed',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  secureTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#144e40',
+  },
+  messagesContainer: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  chatEncryptionNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#f0fdf4',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  chatEncryptionNoticeText: {
+    fontSize: 11,
+    color: '#144e40',
+    fontWeight: '500',
+  },
+  messageBubbleWrapper: {
+    marginBottom: 10,
+    flexDirection: 'row',
+  },
+  bubbleWrapperRight: {
+    justifyContent: 'flex-end',
+  },
+  bubbleWrapperLeft: {
+    justifyContent: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+  },
+  bubbleRight: {
+    backgroundColor: '#144e40',
+    borderBottomRightRadius: 4,
+  },
+  bubbleLeft: {
+    backgroundColor: '#f3f4f6',
+    borderBottomLeftRadius: 4,
+  },
+  bubbleText: {
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  bubbleTextRight: {
+    color: '#ffffff',
+  },
+  bubbleTextLeft: {
+    color: '#111827',
+  },
+  bubbleTime: {
+    fontSize: 10,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  bubbleTimeRight: {
+    color: '#a7f3d0',
+  },
+  bubbleTimeLeft: {
+    color: '#9ca3af',
+  },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+    gap: 10,
+  },
+  chatInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#f9fafb',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#111827',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#144e40',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendBtnDisabled: {
+    backgroundColor: '#9ca3af',
   },
 });

@@ -122,7 +122,7 @@ const NEIGHBOR_PINS: NeighborPin[] = [
 
 const FILTER_TAGS = ['Todos', 'Gasfitería', 'Electricidad', 'Clases'];
 
-export const BarrioMapaScreen: React.FC<Props> = ({ userData }) => {
+export const BarrioMapaScreen: React.FC<Props> = ({ userData, onSelectNeighbor }) => {
   const [category, setCategory] = useState<'servicios' | 'favores'>('servicios');
   const [selectedTag, setSelectedTag] = useState('Todos');
   const [selectedNeighbor, setSelectedNeighbor] = useState<NeighborPin>(NEIGHBOR_PINS[0]);
@@ -409,7 +409,11 @@ export const BarrioMapaScreen: React.FC<Props> = ({ userData }) => {
         </View>
 
         {selectedNeighbor && (
-          <View style={styles.neighborItemRow}>
+          <TouchableOpacity 
+            style={styles.neighborItemRow}
+            activeOpacity={0.8}
+            onPress={() => onSelectNeighbor?.(selectedNeighbor.id)}
+          >
             <View style={styles.neighborAvatar}>
               <Text style={styles.neighborAvatarText}>{selectedNeighbor.initials}</Text>
             </View>
@@ -426,7 +430,7 @@ export const BarrioMapaScreen: React.FC<Props> = ({ userData }) => {
                 <Text style={styles.neighborWalking}>{selectedNeighbor.walkingTime}</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       </View>
 

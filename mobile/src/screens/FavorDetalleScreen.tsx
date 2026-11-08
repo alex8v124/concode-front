@@ -14,14 +14,25 @@ interface Props {
   onPedirPrestado?: () => void;
 }
 
-export const FavorDetalleScreen: React.FC<Props> = ({ onBack }) => {
+export const FavorDetalleScreen: React.FC<Props> = ({ onBack, onPedirPrestado }) => {
   const [solicitado, setSolicitado] = useState(false);
 
   const handlePedir = () => {
     setSolicitado(true);
     Alert.alert(
       'Solicitud Enviada',
-      'Le notificamos a Julio R. que deseas pedir prestado el taladro. Podrán coordinar por el chat vecinal.'
+      'Le notificamos a Julio R. que deseas pedir prestado el taladro. ¿Deseas coordinar los detalles por el chat interno?',
+      [
+        { text: 'Cerrar', style: 'cancel' },
+        { 
+          text: 'Ir al chat', 
+          onPress: () => {
+            if (onPedirPrestado) {
+              onPedirPrestado();
+            }
+          } 
+        }
+      ]
     );
   };
 

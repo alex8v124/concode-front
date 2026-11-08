@@ -21,6 +21,13 @@ import {
 } from 'lucide-react';
 import { PublicarFlowModal, type PublicacionData } from './PublicarFlowModal';
 import { BarrioMapaView } from '../components/BarrioMapaView';
+import { MiPerfilView } from '../components/MiPerfilView';
+import { MiActividadView } from '../components/MiActividadView';
+import { PerfilVecinoModal } from '../components/PerfilVecinoModal';
+import { EscribirResenaModal } from '../components/EscribirResenaModal';
+import { FavorDetalleModal } from '../components/FavorDetalleModal';
+import { MensajesModal } from '../components/MensajesModal';
+import { DirectorioEmergenciaView } from '../components/DirectorioEmergenciaView';
 
 interface BarrioHomeScreenProps {
   userData: UserFormData;
@@ -137,6 +144,11 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   const [modalPublicarVisible, setModalPublicarVisible] = useState(false);
   const [modalPerfilVisible, setModalPerfilVisible] = useState(false);
   const [panicoEnviado, setPanicoEnviado] = useState(false);
+  const [selectedVecino, setSelectedVecino] = useState<any | null>(null);
+  const [modalEscribirResenaVisible, setModalEscribirResenaVisible] = useState(false);
+  const [modalFavorVisible, setModalFavorVisible] = useState(false);
+  const [selectedFavor, setSelectedFavor] = useState<any | null>(null);
+  const [modalMensajesVisible, setModalMensajesVisible] = useState(false);
 
   const cuadranteMostrado = userData.quadrantName || 'Urb. Los Pinos, Surco';
 
@@ -171,9 +183,15 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   return (
     <div className="flex flex-col h-full bg-[#f7f8f4] select-none overflow-y-auto relative pb-20">
       
-      {/* Vista de Tab Mapa o Tab Inicio */}
+      {/* Vista de Tab Mapa, Actividad, Perfil, Emergencia o Inicio */}
       {tabActiva === 'mapa' ? (
-        <BarrioMapaView />
+        <BarrioMapaView onSelectNeighbor={(n) => setSelectedVecino(n)} />
+      ) : tabActiva === 'emergencia' ? (
+        <DirectorioEmergenciaView onBack={() => setTabActiva('inicio')} quadrantName={cuadranteMostrado} />
+      ) : tabActiva === 'actividad' ? (
+        <MiActividadView />
+      ) : tabActiva === 'perfil' ? (
+        <MiPerfilView userData={userData} onLogout={onLogout} />
       ) : (
         <>
           {/* Top Header */}
@@ -189,6 +207,7 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
 
             <button 
               title="Mensajes vecinales"
+              onClick={() => setModalMensajesVisible(true)}
               className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center relative shadow-sm hover:opacity-95 transition cursor-pointer"
             >
               <MessageSquare className="w-5 h-5" strokeWidth={2.2} />
@@ -270,6 +289,28 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
             {listaFiltrada.map((item) => (
               <div 
                 key={item.id}
+                onClick={() => {
+                  if (item.categoria === 'favores') {
+                    setSelectedFavor({
+                      titulo: item.rubro,
+                      descripcion: item.detalle,
+                      distancia: item.distancia,
+                      vecino: item.nombre,
+                      vistosBuenos: item.vistosBuenos,
+                    });
+                    setModalFavorVisible(true);
+                  } else {
+                    setSelectedVecino({
+                      id: item.id,
+                      iniciales: item.iniciales,
+                      nombre: item.nombre,
+                      rubro: item.rubro,
+                      distancia: item.distancia,
+                      vistosBuenos: item.vistosBuenos,
+                      calificacion: item.calificacion,
+                    });
+                  }
+                }}
                 className="bg-white rounded-2xl p-3.5 border border-gray-150 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition cursor-pointer"
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${item.bgAvatar} ${item.colorAvatar}`}>
@@ -335,7 +376,7 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
 
         {/* Emergencia (Central SOS Button) */}
         <button 
-          onClick={() => setModalPanicoVisible(true)}
+          onClick={() => setTabActiva('emergencia')}
           className="flex flex-col items-center justify-center flex-1 -mt-5 cursor-pointer"
         >
           <div className="w-13 h-13 rounded-full bg-[#ba3816] text-white flex items-center justify-center border-3 border-[#f7f8f4] shadow-md hover:scale-105 transition">
@@ -355,7 +396,7 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
 
         {/* Perfil */}
         <button 
-          onClick={() => setModalPerfilVisible(true)}
+          onClick={() => setTabActiva('perfil')}
           className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'perfil' ? 'text-[#144e40]' : 'text-gray-500'}`}
         >
           <User className="w-5 h-5" strokeWidth={tabActiva === 'perfil' ? 2.5 : 1.8} />
@@ -412,6 +453,61 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Perfil de Otro Vecino */}
+      {selectedVecino && (
+        <PerfilVecinoModal
+          vecino={selectedVecino}
+          onClose={() => setSelectedVecino(null)}
+          onOpenEscribirResena={() => setModalEscribirResenaVisible(true)}
+          onContactar={() => {
+            setSelectedVecino(null);
+            setModalMensajesVisible(true);
+          }}
+        />
+      )}
+
+      {/* Modal Escribir Reseña */}
+      <EscribirResenaModal
+        isOpen={modalEscribirResenaVisible}
+        onClose={() => setModalEscribirResenaVisible(false)}
+        targetNeighbor={{
+          nombre: selectedVecino?.nombre || 'Rosa Quispe',
+          iniciales: selectedVecino?.iniciales || 'RQ',
+          rubro: selectedVecino?.rubro || 'Gasfitería',
+        }}
+        onSubmitSuccess={(review) => {
+          if (selectedVecino) {
+            setItemsList(prev => prev.map(item => {
+              if (item.id === selectedVecino.id) {
+                return {
+                  ...item,
+                  vistosBuenos: item.vistosBuenos + 1,
+                  calificacion: Math.round(((item.calificacion * 18 + review.rating) / 19) * 10) / 10,
+                };
+              }
+              return item;
+            }));
+          }
+        }}
+      />
+
+      {/* Modal Favor Detalle */}
+      <FavorDetalleModal
+        isOpen={modalFavorVisible}
+        onClose={() => setModalFavorVisible(false)}
+        onOpenChat={() => {
+          setModalFavorVisible(false);
+          setModalMensajesVisible(true);
+        }}
+        favorData={selectedFavor}
+      />
+
+      {/* Modal Mensajes Internos Vecinales */}
+      <MensajesModal
+        isOpen={modalMensajesVisible}
+        onClose={() => setModalMensajesVisible(false)}
+      />
 
       {/* Modal Flujo Publicar de 3 Pasos + Éxito */}
       <PublicarFlowModal
