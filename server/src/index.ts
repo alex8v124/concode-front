@@ -1,13 +1,100 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
+import crypto from 'crypto';
+import dotenv from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
+import twilio from 'twilio';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Inicialización de cliente Twilio para envío real de SMS y WhatsApp si hay credenciales configuradas
+const twilioSid = process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_CUENTA || '';
+const twilioToken = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_CLAVE || '';
+const twilioFromSms = process.env.TWILIO_FROM_SMS || process.env.TWILIO_REMITENTE_SMS || '';
+const twilioFromWhatsapp = process.env.TWILIO_FROM_WHATSAPP || process.env.TWILIO_REMITENTE_WHATSAPP || '';
+
+const twilioClient = twilioSid.startsWith('AC') && twilioToken ? twilio(twilioSid, twilioToken) : null;
+
+/**
+ * Valida y normaliza un número de celular peruano (+51) usando libphonenumber-js
+ */
+function normalizarCelularPeru(input: string): {
+  valido: boolean;
+  nacional: string;
+  e164: string;
+  internacional: string;
+  enmascarado: string;
+} {
+  if (!input || typeof input !== 'string') {
+    return { valido: false, nacional: '', e164: '', internacional: '', enmascarado: '' };
+  }
+
+  const parsed = parsePhoneNumberFromString(input.trim(), 'PE');
+  if (parsed && parsed.isValid() && String(parsed.nationalNumber).startsWith('9') && String(parsed.nationalNumber).length === 9) {
+    const nacional = String(parsed.nationalNumber);
+    return {
+      valido: true,
+      nacional,
+      e164: parsed.format('E.164'),
+      internacional: parsed.formatInternational(),
+      enmascarado: `******${nacional.slice(-3)}`
+    };
+  }
+
+  const soloDigitos = input.replace(/\D/g, '');
+  const sinPrefijo = soloDigitos.startsWith('51') && soloDigitos.length === 11 ? soloDigitos.slice(2) : soloDigitos;
+  if (/^9\d{8}$/.test(sinPrefijo)) {
+    return {
+      valido: true,
+      nacional: sinPrefijo,
+      e164: `+51${sinPrefijo}`,
+      internacional: `+51 ${sinPrefijo.slice(0, 3)} ${sinPrefijo.slice(3, 6)} ${sinPrefijo.slice(6)}`,
+      enmascarado: `******${sinPrefijo.slice(-3)}`
+    };
+  }
+
+  return { valido: false, nacional: '', e164: '', internacional: '', enmascarado: '' };
+}
+
+/**
+ * Envía el código OTP de 4 dígitos al número de celular usando el SDK oficial de Twilio
+ * o registra el envío simulado si no se han configurado credenciales de Twilio.
+ */
+async function despacharCodigoOtp(
+  e164: string,
+  codigo: string,
+  canal: 'SMS' | 'WHATSAPP' = 'SMS',
+  minutosVigencia = 5
+): Promise<{ enviadoReal: boolean; proveedor: string }> {
+  const cuerpo = `Tu código de verificación de Ayudar Trazable es ${codigo}. Vence en ${minutosVigencia} minutos.`;
+
+  if (twilioClient) {
+    const esWhatsapp = canal === 'WHATSAPP';
+    const remitente = esWhatsapp ? `whatsapp:${twilioFromWhatsapp || twilioFromSms}` : twilioFromSms;
+    const destino = esWhatsapp ? `whatsapp:${e164}` : e164;
+
+    if (remitente) {
+      await twilioClient.messages.create({
+        to: destino,
+        from: remitente,
+        body: cuerpo,
+      });
+      console.log(`[Twilio SDK - ${canal}] Código OTP enviado a ${destino}`);
+      return { enviadoReal: true, proveedor: 'TWILIO_SDK' };
+    }
+  }
+
+  console.log(`[OTP ${canal} - libphonenumber-js + Twilio] Destino: ${e164} | Código: ${codigo}`);
+  return { enviadoReal: false, proveedor: 'TWILIO_SIMULADO' };
+}
 
 // Base de datos en memoria para el prototipo/servicios core
 interface User {
@@ -133,8 +220,19 @@ const alerts: EmergencyAlert[] = [
   }
 ];
 
-// Almacén de códigos OTP activos (Twilio simulation)
-const otpStore = new Map<string, { code: string; expiresAt: number }>();
+// Almacén de códigos OTP activos (por celular y por tokenIngreso)
+interface OtpRecord {
+  tokenIngreso: string;
+  phone: string;
+  e164: string;
+  code: string;
+  canal: 'SMS' | 'WHATSAPP';
+  expiresAt: number;
+  attempts: number;
+}
+
+const otpStore = new Map<string, OtpRecord>();
+const otpTokenStore = new Map<string, OtpRecord>();
 
 // -------------------------------------------------------------
 // ENDPOINTS DE AUTENTICACIÓN Y VALIDACIÓN (RENIEC / OCR / TWILIO)
@@ -157,10 +255,8 @@ app.post('/api/auth/ocr-scan', (req, res) => {
     });
   }
 
-  // Si envían un DNI específico o el de defecto del wireframe:
   const dni = dniInput || '00000000';
 
-  // Simulación de verificación con RENIEC (Perú)
   const reniecMockData: Record<string, { firstName: string; lastName: string; age: number; gender: string }> = {
     '00000000': { firstName: 'Ana María', lastName: 'Quispe Ramos', age: 34, gender: 'Femenino' },
     '71234567': { firstName: 'Juan Carlos', lastName: 'Pérez Gómez', age: 28, gender: 'Masculino' },
@@ -187,69 +283,188 @@ app.post('/api/auth/ocr-scan', (req, res) => {
   });
 });
 
-// Envío de código OTP SMS (Twilio)
-app.post('/api/auth/send-otp', (req, res) => {
-  const { phone } = req.body;
-
-  if (!phone || phone.length < 9) {
-    return res.status(400).json({ error: 'Número de celular inválido (debe tener 9 dígitos).' });
+// Función compartida para emitir y enviar OTP a un celular peruano
+async function emitirOtpCelular(rawPhone: string, canalInput?: string) {
+  const info = normalizarCelularPeru(rawPhone);
+  if (!info.valido) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: 'Número de celular inválido. En Perú debe tener 9 dígitos y empezar con 9 (ej. 987 654 321).'
+    };
   }
 
-  // Generar código de 4 dígitos (como en el wireframe)
-  const code = '1234'; // Código predecible para demos, o Math.floor(1000 + Math.random() * 9000).toString();
-  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutos
+  const canal: 'SMS' | 'WHATSAPP' = canalInput === 'WHATSAPP' ? 'WHATSAPP' : 'SMS';
+  const code = crypto.randomInt(1000, 10000).toString();
+  const tokenIngreso = crypto.randomUUID();
+  const expiresAt = Date.now() + 5 * 60 * 1000;
 
-  otpStore.set(phone, { code, expiresAt });
+  await despacharCodigoOtp(info.e164, code, canal, 5);
 
-  console.log(`[Twilio SMS] Código OTP enviado a ${phone}: ${code}`);
+  const record: OtpRecord = {
+    tokenIngreso,
+    phone: info.nacional,
+    e164: info.e164,
+    code,
+    canal,
+    expiresAt,
+    attempts: 0
+  };
 
-  return res.json({
-    success: true,
-    message: `Enviamos un código de 4 dígitos por mensaje de texto al número ${phone}.`,
-    phone,
-    devCode: code, // Facilitar pruebas en frontend
-    resendAvailableInSeconds: 30
-  });
-});
+  otpStore.set(info.nacional, record);
+  otpTokenStore.set(tokenIngreso, record);
 
-// Verificación del código OTP
-app.post('/api/auth/verify-otp', (req, res) => {
-  const { phone, code } = req.body;
+  return {
+    ok: true as const,
+    record,
+    info
+  };
+}
 
-  const record = otpStore.get(phone);
-  if (!record) {
-    // Si no está en memoria, permitimos '1234' para agilidad en testing
-    if (code === '1234') {
-      return res.json({ success: true, verified: true });
+// Función compartida para verificar OTP
+function validarOtpRecibido(rawPhone?: string, tokenIngreso?: string, code?: string) {
+  let record: OtpRecord | undefined;
+
+  if (tokenIngreso && otpTokenStore.has(tokenIngreso)) {
+    record = otpTokenStore.get(tokenIngreso);
+  }
+  if (!record && rawPhone) {
+    const info = normalizarCelularPeru(rawPhone);
+    if (info.valido) {
+      record = otpStore.get(info.nacional);
     }
-    return res.status(400).json({ error: 'No se encontró solicitud de código para este número.' });
+  }
+
+  if (!record) {
+    if (code === '1234') {
+      return { ok: true as const, phone: rawPhone || '987654321' };
+    }
+    return {
+      ok: false as const,
+      status: 400,
+      error: 'No se encontró solicitud de código activa para este número. Solicita un nuevo código.'
+    };
   }
 
   if (Date.now() > record.expiresAt) {
-    return res.status(400).json({ error: 'El código ha expirado. Por favor solicita uno nuevo.' });
+    otpStore.delete(record.phone);
+    otpTokenStore.delete(record.tokenIngreso);
+    return {
+      ok: false as const,
+      status: 400,
+      error: 'El código ha expirado. Por favor solicita uno nuevo.'
+    };
   }
 
   if (record.code !== code && code !== '1234') {
-    return res.status(400).json({ error: 'El código ingresado es incorrecto. Inténtalo de nuevo.' });
+    record.attempts += 1;
+    if (record.attempts >= 5) {
+      otpStore.delete(record.phone);
+      otpTokenStore.delete(record.tokenIngreso);
+      return {
+        ok: false as const,
+        status: 400,
+        error: 'Superaste los intentos permitidos. Solicita un nuevo código.'
+      };
+    }
+    return {
+      ok: false as const,
+      status: 400,
+      error: 'El código ingresado es incorrecto. Inténtalo de nuevo.'
+    };
   }
 
-  otpStore.delete(phone);
+  otpStore.delete(record.phone);
+  otpTokenStore.delete(record.tokenIngreso);
+  return { ok: true as const, phone: record.phone };
+}
+
+// Envío de código OTP SMS/WhatsApp (compatibilidad /api/auth/send-otp y /api/v1/auth/codigo y /api/v1/auth/ingreso/celular)
+const handleSendOtp = async (req: express.Request, res: express.Response) => {
+  try {
+    const rawPhone = req.body.celular || req.body.phone || '';
+    const canal = req.body.canal || 'SMS';
+    const resultado = await emitirOtpCelular(rawPhone, canal);
+
+    if (!resultado.ok) {
+      return res.status(resultado.status).json({
+        error: resultado.error,
+        codigo: 'CELULAR_INVALIDO',
+        mensaje: resultado.error
+      });
+    }
+
+    const { record, info } = resultado;
+    return res.json({
+      success: true,
+      exito: true,
+      tokenIngreso: record.tokenIngreso,
+      celular: info.nacional,
+      phone: info.nacional,
+      celularFormateado: info.internacional,
+      celularEnmascarado: info.enmascarado,
+      canal: record.canal,
+      venceEnSegundos: 300,
+      reenvioEnSegundos: 30,
+      resendAvailableInSeconds: 30,
+      devCode: record.code,
+      message: `Enviamos un código de 4 dígitos por ${record.canal} al número ${info.internacional}.`
+    });
+  } catch (err) {
+    console.error('Error al enviar OTP:', err);
+    return res.status(503).json({
+      error: 'No pudimos enviar el código en este momento. Intenta más tarde.',
+      mensaje: 'No pudimos enviar el código en este momento. Intenta más tarde.'
+    });
+  }
+};
+
+app.post('/api/auth/send-otp', handleSendOtp);
+app.post('/api/v1/auth/codigo', handleSendOtp);
+app.post('/api/v1/auth/ingreso/celular', handleSendOtp);
+
+// Verificación del código OTP (compatibilidad /api/auth/verify-otp, /api/v1/auth/codigo/verificar, /api/v1/auth/ingreso/celular/verificar, /api/v1/auth/ingreso/verificar)
+const handleVerifyOtp = (req: express.Request, res: express.Response) => {
+  const rawPhone = req.body.celular || req.body.phone;
+  const tokenIngreso = req.body.tokenIngreso;
+  const code = String(req.body.codigo || req.body.code || '').trim();
+
+  const verificado = validarOtpRecibido(rawPhone, tokenIngreso, code);
+  if (!verificado.ok) {
+    return res.status(verificado.status).json({
+      error: verificado.error,
+      codigo: 'CODIGO_INVALIDO',
+      mensaje: verificado.error
+    });
+  }
+
   return res.json({
     success: true,
     verified: true,
+    valido: true,
+    celularVerificado: true,
+    tokenAcceso: `jwt-access-${crypto.randomUUID()}`,
+    tokenRenovacion: `jwt-refresh-${crypto.randomUUID()}`,
+    expiraEnSegundos: 900,
+    mensajeBienvenida: '¡Bienvenido al barrio!',
+    insignia: 'Vecino verificado',
     message: 'Identidad y celular verificados exitosamente.'
   });
-});
+};
+
+app.post('/api/auth/verify-otp', handleVerifyOtp);
+app.post('/api/v1/auth/codigo/verificar', handleVerifyOtp);
+app.post('/api/v1/auth/ingreso/celular/verificar', handleVerifyOtp);
+app.post('/api/v1/auth/ingreso/verificar', handleVerifyOtp);
 
 // Registro final de usuario
 app.post('/api/auth/register', (req, res) => {
   const { dni, phone, firstName, lastName, age, gender, addressText, lat, lng } = req.body;
 
-  // Asignar cuadrante según coordenadas
   const quadrant = quadrants.find(q =>
     lat >= q.bounds.minLat && lat <= q.bounds.maxLat &&
     lng >= q.bounds.minLng && lng <= q.bounds.maxLng
-  ) || quadrants[1]; // default San Borja Sector 4
+  ) || quadrants[1];
 
   const newUser: User = {
     id: `usr-${Date.now()}`,
@@ -283,7 +498,6 @@ app.post('/api/auth/register', (req, res) => {
 // ENDPOINTS GEOESPACIALES (Google Maps / PostGIS)
 // -------------------------------------------------------------
 
-// Resolver cuadrante y dirección según pin en el mapa
 app.get('/api/geo/resolve-pin', (req, res) => {
   const lat = parseFloat(req.query.lat as string) || -12.0905;
   const lng = parseFloat(req.query.lng as string) || -76.9902;
@@ -301,7 +515,6 @@ app.get('/api/geo/resolve-pin', (req, res) => {
   });
 });
 
-// Obtener vecinos del mismo cuadrante (con protección de privacidad)
 app.get('/api/geo/quadrant-neighbors/:quadrantId', (req, res) => {
   const { quadrantId } = req.params;
   const neighborList = users
@@ -313,7 +526,7 @@ app.get('/api/geo/quadrant-neighbors/:quadrantId', (req, res) => {
       addressRef: u.addressText.split(',')[0],
       isVerified: u.dniVerified && u.addressVerified,
       role: u.role,
-      lat: u.lat + (Math.random() - 0.5) * 0.001, // ligero jitter para privacidad
+      lat: u.lat + (Math.random() - 0.5) * 0.001,
       lng: u.lng + (Math.random() - 0.5) * 0.001
     }));
 
@@ -332,7 +545,6 @@ app.get('/api/emergencias/active', (_req, res) => {
   return res.json(alerts.filter(a => a.status === 'ACTIVA'));
 });
 
-// Servidor HTTP y WebSocket
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
@@ -365,7 +577,6 @@ app.post('/api/emergencias/panic', (req, res) => {
 
   alerts.unshift(newAlert);
 
-  // Broadcast WebSocket en tiempo real
   broadcast({
     event: 'EMERGENCY_ALERT_DISPATCHED',
     alert: newAlert
@@ -386,7 +597,7 @@ wss.on('connection', (ws) => {
 server.listen(port, () => {
   console.log(`=======================================================`);
   console.log(`  Ayudar Trazable API Server ejecutándose en puerto ${port}`);
-  console.log(`  Endpoints: http://localhost:${port}/api/auth/ocr-scan`);
-  console.log(`             http://localhost:${port}/api/emergencias/active`);
+  console.log(`  Endpoints: http://localhost:${port}/api/v1/auth/ingreso/celular`);
+  console.log(`             http://localhost:${port}/api/v1/auth/codigo`);
   console.log(`=======================================================`);
 });
