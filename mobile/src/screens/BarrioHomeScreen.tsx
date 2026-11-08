@@ -15,6 +15,8 @@ import { mobileApiService } from '../services/api';
 import { BarrioMapaScreen } from './BarrioMapaScreen';
 import { MensajesScreen } from './MensajesScreen';
 import { FavorDetalleScreen } from './FavorDetalleScreen';
+import { PublicarFlowScreen, PublicacionData } from './PublicarFlowScreen';
+import { DirectorioEmergenciaScreen } from './DirectorioEmergenciaScreen';
 
 interface Props {
   userData: {
@@ -29,7 +31,7 @@ interface Props {
 
 type Categoria = 'servicios' | 'favores';
 type Tab = 'inicio' | 'mapa' | 'emergencia' | 'actividad' | 'perfil';
-type VistaSecundaria = 'ninguna' | 'mensajes' | 'favor_detalle';
+type VistaSecundaria = 'ninguna' | 'mensajes' | 'favor_detalle' | 'publicar' | 'emergencia';
 
 interface ServicioItem {
   id: string;
@@ -127,6 +129,7 @@ const SERVICIOS_MOCK: ServicioItem[] = [
 ];
 
 export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
+  const [itemsList, setItemsList] = useState<ServicioItem[]>(SERVICIOS_MOCK);
   const [categoriaActiva, setCategoriaActiva] = useState<Categoria>('servicios');
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState<Tab>('inicio');
@@ -139,6 +142,47 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
 
+  const handleSuccessPublish = (data: PublicacionData) => {
+    const initials = `${userData.firstName?.[0] || 'T'}${userData.lastName?.[0] || 'U'}`.toUpperCase();
+    const esServicio = data.tipo === 'servicio';
+    const nuevo: ServicioItem = {
+      id: Date.now().toString(),
+      iniciales: initials,
+      nombre: `${userData.firstName} ${userData.lastName}`.trim() || 'Tú',
+      distancia: '0 m (Tu casa)',
+      rubro: data.titulo,
+      detalle: data.descripcion || 'Publicado recientemente en tu cuadrante',
+      vistosBuenos: 1,
+      calificacion: 5.0,
+      bgAvatar: esServicio ? '#d6eee2' : '#e0e7fb',
+      colorAvatar: esServicio ? '#144e40' : '#2b4290',
+      categoria: esServicio ? 'servicios' : 'favores',
+    };
+    setItemsList(prev => [nuevo, ...prev]);
+    setCategoriaActiva(esServicio ? 'servicios' : 'favores');
+  };
+
+  // Si está en la pantalla de Publicar (Flujo 3 pasos + éxito)
+  if (vistaSecundaria === 'publicar') {
+    return (
+      <PublicarFlowScreen 
+        userQuadrant={cuadranteMostrado}
+        onClose={() => setVistaSecundaria('ninguna')}
+        onSuccessPublish={handleSuccessPublish}
+      />
+    );
+  }
+
+  // Si está en el Directorio de Emergencia
+  if (vistaSecundaria === 'emergencia') {
+    return (
+      <DirectorioEmergenciaScreen 
+        userQuadrant={cuadranteMostrado}
+        onBack={() => setVistaSecundaria('ninguna')}
+      />
+    );
+  }
+
   // Si está en la pantalla de Mensajes
   if (vistaSecundaria === 'mensajes') {
     return <MensajesScreen onBack={() => setVistaSecundaria('ninguna')} />;
@@ -149,7 +193,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
     return <FavorDetalleScreen onBack={() => setVistaSecundaria('ninguna')} />;
   }
 
-  const listaFiltrada = SERVICIOS_MOCK.filter(item => {
+  const listaFiltrada = itemsList.filter(item => {
     const coincideCat = item.categoria === categoriaActiva;
     const coincideBusqueda = busqueda.trim() === '' || 
       item.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -330,7 +374,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         <TouchableOpacity 
           style={styles.fabBtn} 
           activeOpacity={0.85}
-          onPress={() => setModalPublicarVisible(true)}
+          onPress={() => setVistaSecundaria('publicar')}
         >
           <Feather name="plus" size={18} color="#ffffff" />
           <Text style={styles.fabBtnText}>Publicar</Text>
@@ -363,7 +407,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         {/* Emergencia (Botón SOS Elevado) */}
         <TouchableOpacity 
           style={styles.emergencyNavItem} 
-          onPress={() => setModalPanicoVisible(true)}
+          onPress={() => setVistaSecundaria('emergencia')}
           activeOpacity={0.85}
         >
           <View style={styles.sosButtonCircle}>

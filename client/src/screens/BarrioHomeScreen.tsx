@@ -19,6 +19,7 @@ import {
   PhoneCall,
   ShieldAlert
 } from 'lucide-react';
+import { PublicarFlowModal, PublicacionData } from './PublicarFlowModal';
 
 interface BarrioHomeScreenProps {
   userData: UserFormData;
@@ -127,6 +128,7 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   userData,
   onLogout
 }) => {
+  const [itemsList, setItemsList] = useState<ServicioItem[]>(SERVICIOS_MOCK);
   const [categoriaActiva, setCategoriaActiva] = useState<Categoria>('servicios');
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState<Tab>('inicio');
@@ -137,7 +139,27 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
 
   const cuadranteMostrado = userData.quadrantName || 'Urb. Los Pinos, Surco';
 
-  const listaFiltrada = SERVICIOS_MOCK.filter(item => {
+  const handleSuccessPublish = (data: PublicacionData) => {
+    const initials = `${userData.firstName?.[0] || 'T'}${userData.lastName?.[0] || 'U'}`.toUpperCase();
+    const esServicio = data.tipo === 'servicio';
+    const nuevo: ServicioItem = {
+      id: Date.now().toString(),
+      iniciales: initials,
+      nombre: `${userData.firstName} ${userData.lastName}`.trim() || 'Tú',
+      distancia: '0 m (Tu casa)',
+      rubro: data.titulo,
+      detalle: data.descripcion || 'Publicado recientemente en tu cuadrante',
+      vistosBuenos: 1,
+      calificacion: 5.0,
+      bgAvatar: esServicio ? 'bg-emerald-100' : 'bg-indigo-100',
+      colorAvatar: esServicio ? 'text-emerald-900' : 'text-indigo-900',
+      categoria: esServicio ? 'servicios' : 'favores',
+    };
+    setItemsList(prev => [nuevo, ...prev]);
+    setCategoriaActiva(esServicio ? 'servicios' : 'favores');
+  };
+
+  const listaFiltrada = itemsList.filter(item => {
     const coincideCat = item.categoria === categoriaActiva;
     const coincideBusqueda = busqueda.trim() === '' || 
       item.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -383,36 +405,13 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
         </div>
       )}
 
-      {/* Modal Publicar */}
-      {modalPublicarVisible && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-5 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-lg text-gray-900">Publicar en tu Barrio</h3>
-              <button onClick={() => setModalPublicarVisible(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-600 mb-4">
-              Ofrece tus servicios profesionales o solicita ayuda comunitaria a tus vecinos de {cuadranteMostrado}.
-            </p>
-            <input 
-              type="text" 
-              placeholder="Ej: Clases de nivelación escolar primaria" 
-              className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none mb-4"
-            />
-            <button 
-              onClick={() => {
-                setModalPublicarVisible(false);
-                alert('Publicación enviada al cuadrante con éxito.');
-              }}
-              className="w-full py-3 bg-[#144e40] text-white font-bold rounded-xl text-sm hover:bg-[#103e33] transition"
-            >
-              Publicar anuncio
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Modal Flujo Publicar de 3 Pasos + Éxito */}
+      <PublicarFlowModal
+        isOpen={modalPublicarVisible}
+        onClose={() => setModalPublicarVisible(false)}
+        onSuccess={handleSuccessPublish}
+        userQuadrant={cuadranteMostrado}
+      />
 
       {/* Modal Perfil */}
       {modalPerfilVisible && (
