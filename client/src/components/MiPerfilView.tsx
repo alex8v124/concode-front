@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { UserFormData } from '../types';
-import { Lock, Zap, Smartphone, Mail, MapPin, LogOut } from 'lucide-react';
+import { Lock, Zap, Smartphone, Mail, MapPin, LogOut, Check, Plus, Trash2, X } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface Props {
   userData: UserFormData;
@@ -8,23 +9,70 @@ interface Props {
   onNavigateRestablecer?: () => void;
 }
 
+interface OcupacionInfo {
+  oficio: string;
+  anios: string;
+}
+
 export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRestablecer }) => {
-  const dniEnmascarado = userData.dni && userData.dni.length >= 8 
+  const nombreCompleto = `${userData.firstName || 'Carlos Alberto'} ${userData.lastName || 'Mendoza Ríos'}`.trim();
+  const iniciales = `${(userData.firstName || 'C')[0] || 'C'}${(userData.lastName || 'M')[0] || 'M'}`.toUpperCase();
+  const edadMostrada = userData.age ? `${userData.age} años` : '34 años';
+  const dniEnmascarado = userData.dni && userData.dni.length >= 4
     ? `• • • • ${userData.dni.slice(-4)}`
     : '• • • • 5678';
   const zonaMostrada = userData.quadrantName || 'Urb. Los Pinos, Surco';
-  const sexoMostrado = userData.gender === 'F' ? 'Femenino' : 'Masculino';
+  const sexoMostrado = userData.gender === 'F' || userData.gender === 'Femenino' ? 'Femenino' : 'Masculino';
   const celularMostrado = userData.phone 
     ? `+51 ${userData.phone.slice(0, 3)} • • • ${userData.phone.slice(-3)}`
     : '+51 987 • • • 321';
 
-  const [ocupacion, setOcupacion] = useState('Electricidad · 8 años');
+  const [ocupacion, setOcupacion] = useState<OcupacionInfo | null>({
+    oficio: 'Electricidad',
+    anios: '8',
+  });
+  const [modalOcupacionVisible, setModalOcupacionVisible] = useState(false);
+  const [formOficio, setFormOficio] = useState('Electricidad');
+  const [formAnios, setFormAnios] = useState('8');
+
   const [correo] = useState('No registrado');
   const [mostrarModalConfirmar, setMostrarModalConfirmar] = useState(false);
 
-  const handleEditarOcupacion = () => {
-    const nuevo = prompt('Ingresa tu ocupación u oficio y años de experiencia:', ocupacion);
-    if (nuevo) setOcupacion(nuevo);
+  const abrirModalOcupacion = () => {
+    setFormOficio(ocupacion?.oficio || '');
+    setFormAnios(ocupacion?.anios || '');
+    setModalOcupacionVisible(true);
+  };
+
+  const handleGuardarOcupacion = async () => {
+    const oficioLimpio = formOficio.trim();
+    if (!oficioLimpio) return;
+    const aniosLimpio = formAnios.replace(/\D/g, '') || '1';
+    setOcupacion({ oficio: oficioLimpio, anios: aniosLimpio });
+    setModalOcupacionVisible(false);
+    try {
+      await apiService.actualizarOcupacion({
+        oficio: oficioLimpio,
+        aniosExperiencia: parseInt(aniosLimpio, 10) || 1,
+        visibleDirectorio: true,
+      });
+    } catch (e) {
+      console.warn('Error al sincronizar ocupación:', e);
+    }
+  };
+
+  const handleEliminarOcupacion = async () => {
+    setOcupacion(null);
+    setModalOcupacionVisible(false);
+    try {
+      await apiService.actualizarOcupacion({
+        oficio: '',
+        aniosExperiencia: 0,
+        visibleDirectorio: false,
+      });
+    } catch (e) {
+      console.warn('Error al eliminar ocupación:', e);
+    }
   };
 
   const handleCambiarCelular = () => {
@@ -40,52 +88,141 @@ export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRe
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5 pb-24 select-none bg-[#f7f8f4] min-h-full">
+    <div className="flex flex-col gap-4 p-5 pb-24 select-none bg-[#f7f8f4] min-h-full">
       
-      {/* Sección 1: Datos que vienen de DNI */}
-      <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-2xs divide-y divide-gray-100">
-        <div className="flex items-center justify-between pb-3">
-          <span className="text-xs text-gray-500 font-medium">Sexo</span>
-          <span className="text-sm font-bold text-gray-900">{sexoMostrado}</span>
+      {/* 1. Cabecera Superior: Mi perfil + Verificado con DNI */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Mi perfil</h2>
+        <span className="inline-flex items-center gap-1 bg-[#e6f2ed] text-[#144e40] text-xs font-bold px-3 py-1.5 rounded-full">
+          <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+          Verificado con DNI
+        </span>
+      </div>
+
+      {/* 2. Tarjeta Principal del Vecino */}
+      <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-2xs flex items-center gap-3.5">
+        <div className="w-14 h-14 rounded-full bg-[#dce6f7] text-[#1e3a8a] flex items-center justify-center font-extrabold text-lg shrink-0">
+          {iniciales}
         </div>
 
-        <div className="flex items-center justify-between py-3">
-          <span className="text-xs text-gray-500 font-medium">DNI</span>
-          <span className="text-sm font-bold text-gray-900 tracking-wider">{dniEnmascarado}</span>
-        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-extrabold text-gray-900 leading-snug">{nombreCompleto}</h3>
+          <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+            {zonaMostrada} · vecino desde marzo 2026
+          </p>
 
-        <div className="flex items-center gap-1.5 pt-3 text-[11px] text-gray-500 font-medium">
-          <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          <span>Vienen de tu DNI y no se pueden editar.</span>
+          {ocupacion ? (
+            <button
+              onClick={abrirModalOcupacion}
+              className="mt-2 inline-block bg-[#f5e8c7] text-[#78350f] text-[11px] font-bold px-3 py-0.5 rounded-xl cursor-pointer hover:opacity-90 transition"
+            >
+              {ocupacion.oficio}
+            </button>
+          ) : (
+            <button
+              onClick={abrirModalOcupacion}
+              className="mt-2 inline-flex items-center gap-1 bg-[#e6f2ed] text-[#144e40] text-[11px] font-bold px-2.5 py-0.5 rounded-xl cursor-pointer hover:opacity-90 transition"
+            >
+              <Plus className="w-3 h-3" />
+              Añadir profesión u oficio
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Sección 2: Ocupación o profesión */}
+      {/* 3. Fila de 3 Estadísticas */}
+      <div className="grid grid-cols-3 gap-2.5">
+        <div className="bg-white rounded-2xl p-3.5 border border-gray-200 shadow-2xs">
+          <span className="text-xl font-extrabold text-gray-900 block">12</span>
+          <span className="text-[11px] text-gray-500 leading-tight block mt-0.5">vistos buenos</span>
+        </div>
+
+        <div className="bg-white rounded-2xl p-3.5 border border-gray-200 shadow-2xs">
+          <span className="text-xl font-extrabold text-gray-900 block">7</span>
+          <span className="text-[11px] text-gray-500 leading-tight block mt-0.5">favores hechos</span>
+        </div>
+
+        <div className="bg-white rounded-2xl p-3.5 border border-gray-200 shadow-2xs">
+          <span className="text-xl font-extrabold text-gray-900 block">3</span>
+          <span className="text-[11px] text-gray-500 leading-tight block mt-0.5">publicaciones</span>
+        </div>
+      </div>
+
+      {/* 4. Sección: Mis datos (Edad, Sexo, DNI) */}
+      <div className="flex flex-col gap-2">
+        <h4 className="text-sm font-bold text-gray-900">Mis datos</h4>
+
+        <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-2xs divide-y divide-gray-100">
+          <div className="flex items-center justify-between pb-3">
+            <span className="text-xs text-gray-500 font-medium">Edad</span>
+            <span className="text-sm font-bold text-gray-900">{edadMostrada}</span>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-xs text-gray-500 font-medium">Sexo</span>
+            <span className="text-sm font-bold text-gray-900">{sexoMostrado}</span>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-xs text-gray-500 font-medium">DNI</span>
+            <span className="text-sm font-bold text-gray-900 tracking-wider">{dniEnmascarado}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 pt-3 text-[11px] text-gray-500 font-medium">
+            <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <span>Vienen de tu DNI y no se pueden editar.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Sección: Ocupación o profesión */}
       <div className="flex flex-col gap-2">
         <h4 className="text-sm font-bold text-gray-900">Ocupación o profesión</h4>
         
-        <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-2xs flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-[#fef3c7] text-[#b45309] flex items-center justify-center shrink-0">
-              <Zap className="w-5 h-5 fill-current" />
+        {ocupacion ? (
+          <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-2xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-[#fef3c7] text-[#b45309] flex items-center justify-center shrink-0">
+                <Zap className="w-5 h-5 fill-current" />
+              </div>
+
+              <div className="min-w-0">
+                <h5 className="font-extrabold text-gray-900 text-sm truncate">
+                  {ocupacion.oficio}{ocupacion.anios ? ` · ${ocupacion.anios} años` : ''}
+                </h5>
+                <p className="text-xs text-gray-500 truncate">Visible en el directorio de Servicios</p>
+              </div>
             </div>
 
-            <div className="min-w-0">
-              <h5 className="font-extrabold text-gray-900 text-sm truncate">{ocupacion}</h5>
-              <p className="text-xs text-gray-500 truncate">Visible en el directorio de Servicios</p>
-            </div>
+            <button 
+              onClick={abrirModalOcupacion}
+              className="text-sm font-bold text-[#144e40] hover:text-[#0f3d32] px-2 py-1 transition cursor-pointer shrink-0"
+            >
+              Editar
+            </button>
           </div>
-
-          <button 
-            onClick={handleEditarOcupacion}
-            className="text-sm font-bold text-[#144e40] hover:text-[#0f3d32] px-2 py-1 transition cursor-pointer shrink-0"
+        ) : (
+          <div
+            onClick={abrirModalOcupacion}
+            className="bg-white rounded-3xl p-4 border border-dashed border-[#144e40] shadow-2xs flex items-center justify-between gap-3 cursor-pointer hover:bg-[#f6fbf9] transition"
           >
-            Editar
-          </button>
-        </div>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-[#e6f2ed] text-[#144e40] flex items-center justify-center shrink-0">
+                <Plus className="w-5 h-5" />
+              </div>
+
+              <div className="min-w-0">
+                <h5 className="font-extrabold text-gray-900 text-sm truncate">Añadir ocupación o profesión</h5>
+                <p className="text-xs text-gray-500 truncate">Ofrece tu oficio a los vecinos de tu barrio</p>
+              </div>
+            </div>
+
+            <span className="text-sm font-bold text-[#144e40] px-2 py-1 shrink-0">Añadir</span>
+          </div>
+        )}
       </div>
 
-      {/* Sección 3: Acceso y seguridad */}
+      {/* 6. Sección: Acceso y seguridad */}
       <div className="flex flex-col gap-2">
         <h4 className="text-sm font-bold text-gray-900">Acceso y seguridad</h4>
         
@@ -127,15 +264,16 @@ export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRe
 
         </div>
 
-        {/* Link Restablecer con tu DNI */}
-        <p className="text-xs text-[#144e40] font-semibold px-1 mt-0.5 leading-snug cursor-pointer hover:underline"
-           onClick={onNavigateRestablecer}
-        >
-          ¿Ya no tienes acceso a ninguno? Restablece con tu DNI
-        </p>
+        {onNavigateRestablecer && (
+          <p className="text-xs text-[#144e40] font-semibold px-1 mt-0.5 leading-snug cursor-pointer hover:underline"
+             onClick={onNavigateRestablecer}
+          >
+            ¿Ya no tienes acceso a ninguno? Restablece con tu DNI
+          </p>
+        )}
       </div>
 
-      {/* Sección 4: Mi zona */}
+      {/* 7. Sección: Mi zona */}
       <div className="flex flex-col gap-2">
         <h4 className="text-sm font-bold text-gray-900">Mi zona</h4>
         
@@ -159,7 +297,7 @@ export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRe
         </div>
       </div>
 
-      {/* Botón Cerrar Sesión */}
+      {/* 8. Botón Cerrar Sesión */}
       {onLogout && (
         <button 
           onClick={() => setMostrarModalConfirmar(true)}
@@ -167,6 +305,76 @@ export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRe
         >
           Cerrar sesión
         </button>
+      )}
+
+      {/* Modal para Añadir / Modificar / Eliminar Ocupación */}
+      {modalOcupacionVisible && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-5 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-150">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-lg font-extrabold text-gray-900">
+                {ocupacion ? 'Editar ocupación o profesión' : 'Añadir ocupación o profesión'}
+              </h3>
+              <button onClick={() => setModalOcupacionVisible(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+              Tus vecinos podrán encontrarte en el directorio de Servicios de tu barrio.
+            </p>
+
+            <div className="mb-3">
+              <label className="block text-xs font-bold text-gray-900 mb-1">Profesión u oficio</label>
+              <input
+                type="text"
+                value={formOficio}
+                onChange={(e) => setFormOficio(e.target.value)}
+                placeholder="Ej. Electricidad, Gasfitería, Clases..."
+                className="w-full h-11 rounded-xl bg-gray-50 border border-gray-300 px-3.5 text-sm font-semibold text-gray-900 outline-none focus:border-[#144e40]"
+              />
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-bold text-gray-900 mb-1">Años de experiencia</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={2}
+                value={formAnios}
+                onChange={(e) => setFormAnios(e.target.value.replace(/\D/g, ''))}
+                placeholder="Ej. 8"
+                className="w-full h-11 rounded-xl bg-gray-50 border border-gray-300 px-3.5 text-sm font-semibold text-gray-900 outline-none focus:border-[#144e40]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleGuardarOcupacion}
+                className="w-full py-3.5 rounded-2xl bg-[#144e40] hover:bg-[#0f3d32] text-white font-bold text-sm transition cursor-pointer"
+              >
+                Guardar ocupación
+              </button>
+
+              {ocupacion && (
+                <button
+                  onClick={handleEliminarOcupacion}
+                  className="w-full py-3 rounded-2xl bg-red-50 hover:bg-red-100 text-[#b43b1d] border border-red-200 font-bold text-sm flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Eliminar ocupación
+                </button>
+              )}
+
+              <button
+                onClick={() => setModalOcupacionVisible(false)}
+                className="w-full py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de Confirmación "¿Estás seguro?" */}

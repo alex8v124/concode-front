@@ -26,6 +26,9 @@ interface Props {
   userData: {
     firstName: string;
     lastName: string;
+    age?: string;
+    gender?: string;
+    phone?: string;
     quadrant?: string;
     dni?: string;
     address?: string;
