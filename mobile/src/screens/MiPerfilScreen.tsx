@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  Alert
+  Alert,
+  Modal
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -21,19 +22,22 @@ interface Props {
     phone?: string;
   };
   onLogout?: () => void;
+  onNavigateRestablecer?: () => void;
 }
 
-export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout }) => {
-  const nombreMostrado = `${userData.firstName || 'Carlos Alberto'} ${userData.lastName || 'Mendoza Ríos'}`.trim();
-  const iniciales = `${userData.firstName?.[0] || 'C'}${userData.lastName?.[0] || 'M'}`.toUpperCase();
+export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout, onNavigateRestablecer }) => {
   const dniEnmascarado = userData.dni && userData.dni.length >= 8 
-    ? `•••• ${userData.dni.slice(-4)}`
-    : '•••• 5678';
+    ? `• • • • ${userData.dni.slice(-4)}`
+    : '• • • • 5678';
   const zonaMostrada = userData.quadrant || 'Urb. Los Pinos, Surco';
-  const edadMostrada = userData.age ? `${userData.age} años` : '34 años';
   const sexoMostrado = userData.gender === 'F' ? 'Femenino' : 'Masculino';
+  const celularMostrado = userData.phone 
+    ? `+51 ${userData.phone.slice(0, 3)} • • • ${userData.phone.slice(-3)}`
+    : '+51 987 • • • 321';
 
   const [ocupacion, setOcupacion] = useState('Electricidad · 8 años');
+  const [correo] = useState('No registrado');
+  const [mostrarModalConfirmar, setMostrarModalConfirmar] = useState(false);
 
   const handleEditarOcupacion = () => {
     Alert.prompt 
@@ -47,81 +51,39 @@ export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout }) => {
       : Alert.alert('Ocupación', `Tu ocupación actual es "${ocupacion}". Visible para tus vecinos.`);
   };
 
+  const handleCambiarCelular = () => {
+    Alert.alert('Cambiar Celular', 'Se enviará un código SMS al nuevo número para verificarlo.');
+  };
+
+  const handleAgregarCorreo = () => {
+    Alert.alert('Agregar Correo', 'Ingresa tu correo para asociarlo a tu cuenta.');
+  };
+
+  const handleActualizarZona = () => {
+    Alert.alert('Actualizar Zona', 'Para cambiar de comunidad vecinal debes verificar tu nuevo domicilio en el mapa.');
+  };
+
   return (
     <View style={styles.container}>
-      
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Cabecera del Perfil */}
-        <View style={styles.headerRow}>
-          <Text style={styles.screenTitle}>Mi perfil</Text>
-          <View style={styles.verifiedBadge}>
-            <Feather name="check" size={14} color="#144e40" style={{ marginRight: 4 }} />
-            <Text style={styles.verifiedBadgeText}>Verificado con DNI</Text>
+        {/* Sección: Datos de Identidad (DNI) */}
+        <View style={styles.dataCard}>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataFieldLabel}>Sexo</Text>
+            <Text style={styles.dataFieldValue}>{sexoMostrado}</Text>
           </View>
-        </View>
+          <View style={styles.dataDivider} />
 
-        {/* Tarjeta de Identidad del Usuario */}
-        <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{iniciales}</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataFieldLabel}>DNI</Text>
+            <Text style={styles.dataFieldValue}>{dniEnmascarado}</Text>
           </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.userName}>{nombreMostrado}</Text>
-            <Text style={styles.userZone}>
-              {zonaMostrada} · vecino desde marzo 2026
-            </Text>
-            <View style={styles.professionPill}>
-              <Text style={styles.professionPillText}>Electricista</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Fila de Estadísticas Comunitarias */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>12</Text>
-            <Text style={styles.statLabel}>vistos buenos</Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>7</Text>
-            <Text style={styles.statLabel}>favores hechos</Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>3</Text>
-            <Text style={styles.statLabel}>publicaciones</Text>
-          </View>
-        </View>
-
-        {/* Sección: Mis Datos */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Mis datos</Text>
-          
-          <View style={styles.dataCard}>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataFieldLabel}>Edad</Text>
-              <Text style={styles.dataFieldValue}>{edadMostrada}</Text>
-            </View>
-            <View style={styles.dataDivider} />
-
-            <View style={styles.dataRow}>
-              <Text style={styles.dataFieldLabel}>Sexo</Text>
-              <Text style={styles.dataFieldValue}>{sexoMostrado}</Text>
-            </View>
-            <View style={styles.dataDivider} />
-
-            <View style={styles.dataRow}>
-              <Text style={styles.dataFieldLabel}>DNI</Text>
-              <Text style={styles.dataFieldValue}>{dniEnmascarado}</Text>
-            </View>
-          </View>
+          <View style={styles.dataDivider} />
 
           <View style={styles.privacyNoteRow}>
-            <Feather name="lock" size={13} color="#6b7280" style={{ marginRight: 6 }} />
-            <Text style={styles.privacyNoteText}>Vienen de tu DNI y no se pueden editar</Text>
+            <Feather name="lock" size={13} color="#9ca3af" style={{ marginRight: 6 }} />
+            <Text style={styles.privacyNoteText}>Vienen de tu DNI y no se pueden editar.</Text>
           </View>
         </View>
 
@@ -131,7 +93,7 @@ export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout }) => {
           
           <View style={styles.professionCard}>
             <View style={styles.professionIconBox}>
-              <MaterialCommunityIcons name="lightning-bolt" size={22} color="#b45309" />
+              <MaterialCommunityIcons name="lightning-bolt" size={24} color="#b45309" />
             </View>
 
             <View style={{ flex: 1 }}>
@@ -140,11 +102,80 @@ export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout }) => {
             </View>
 
             <TouchableOpacity 
-              style={styles.editBtn} 
               onPress={handleEditarOcupacion}
               activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.editBtnText}>Editar</Text>
+              <Text style={styles.actionLinkText}>Editar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Sección: Acceso y seguridad */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Acceso y seguridad</Text>
+          
+          <View style={styles.dataCard}>
+            {/* Fila Celular */}
+            <View style={styles.securityRow}>
+              <View style={styles.securityLeft}>
+                <Feather name="smartphone" size={20} color="#374151" style={{ marginRight: 12 }} />
+                <View>
+                  <Text style={styles.securityLabel}>Celular</Text>
+                  <Text style={styles.securityValue}>{celularMostrado}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={handleCambiarCelular} activeOpacity={0.7}>
+                <Text style={styles.actionLinkText}>Cambiar</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dataDivider} />
+
+            {/* Fila Correo */}
+            <View style={styles.securityRow}>
+              <View style={styles.securityLeft}>
+                <Feather name="mail" size={20} color="#374151" style={{ marginRight: 12 }} />
+                <View>
+                  <Text style={styles.securityLabel}>Correo</Text>
+                  <Text style={styles.securityValue}>{correo}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={handleAgregarCorreo} activeOpacity={0.7}>
+                <Text style={styles.actionLinkText}>Agregar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Enlace Restablecer con DNI */}
+          <TouchableOpacity 
+            onPress={onNavigateRestablecer}
+            activeOpacity={0.7}
+            style={{ paddingHorizontal: 4 }}
+          >
+            <Text style={styles.restablecerLink}>
+              ¿Ya no tienes acceso a ninguno? Restablece con tu DNI
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sección: Mi zona */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Mi zona</Text>
+          
+          <View style={styles.zoneCard}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+              <Feather name="map-pin" size={16} color="#144e40" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.zoneTitle}>{zonaMostrada}</Text>
+                <Text style={styles.zoneSubtitle}>
+                  Si te mudas, actualiza tu ubicación para cambiar de comunidad
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity onPress={handleActualizarZona} activeOpacity={0.7}>
+              <Text style={styles.actionLinkText}>Actualizar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -153,16 +184,56 @@ export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout }) => {
         {onLogout && (
           <TouchableOpacity 
             style={styles.logoutBtn} 
-            onPress={onLogout}
+            onPress={() => setMostrarModalConfirmar(true)}
             activeOpacity={0.8}
           >
-            <Feather name="log-out" size={16} color="#dc2626" style={{ marginRight: 6 }} />
             <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
           </TouchableOpacity>
         )}
 
       </ScrollView>
 
+      {/* Modal de Confirmación "¿Estás seguro de que deseas cerrar sesión?" */}
+      <Modal
+        visible={mostrarModalConfirmar}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMostrarModalConfirmar(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.confirmModalCard}>
+            <View style={styles.confirmIconCircle}>
+              <Feather name="log-out" size={26} color="#b43b1d" />
+            </View>
+
+            <Text style={styles.confirmModalTitle}>¿Estás seguro?</Text>
+            <Text style={styles.confirmModalDesc}>
+              Vas a cerrar tu sesión en VECI. Para volver a ingresar necesitarás validar tu acceso nuevamente.
+            </Text>
+
+            <View style={styles.confirmButtonsCol}>
+              <TouchableOpacity
+                style={styles.confirmLogoutBtn}
+                onPress={() => {
+                  setMostrarModalConfirmar(false);
+                  onLogout?.();
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmLogoutBtnText}>Sí, cerrar sesión</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelLogoutBtn}
+                onPress={() => setMostrarModalConfirmar(false)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.cancelLogoutBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -174,127 +245,23 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: Platform.OS === 'android' ? 16 : 10,
+    paddingTop: Platform.OS === 'android' ? 16 : 12,
     gap: 18,
     paddingBottom: 90,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#d6eee2',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-  },
-  verifiedBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#144e40',
-  },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#e0e7fb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#2b4290',
-  },
-  userName: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  userZone: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  professionPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffedd5',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginTop: 6,
-  },
-  professionPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#9a3412',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  statNum: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#6b7280',
-    marginTop: 2,
-    fontWeight: '500',
   },
   section: {
     gap: 8,
   },
   sectionHeader: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#111827',
   },
   dataCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 18,
+    borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -302,7 +269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   dataFieldLabel: {
     fontSize: 14,
@@ -310,9 +277,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dataFieldValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#111827',
+    letterSpacing: 0.5,
   },
   dataDivider: {
     height: 1,
@@ -321,33 +289,33 @@ const styles = StyleSheet.create({
   privacyNoteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 4,
-    marginTop: 2,
+    paddingVertical: 12,
   },
   privacyNoteText: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#6b7280',
+    fontWeight: '500',
   },
   professionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 18,
+    borderRadius: 24,
     padding: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     gap: 12,
   },
   professionIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: '#fef3c7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   professionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#111827',
   },
@@ -356,29 +324,145 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 2,
   },
-  editBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6',
+  securityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
   },
-  editBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  logoutBtn: {
+  securityLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  securityLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  securityValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 1,
+  },
+  actionLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#144e40',
+  },
+  restablecerLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#144e40',
+    lineHeight: 18,
+  },
+  zoneCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    gap: 12,
+  },
+  zoneTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  zoneSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  logoutBtn: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    paddingVertical: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fee2e2',
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     marginTop: 8,
   },
   logoutBtnText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#dc2626',
+    color: '#9e3218',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  confirmModalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 28,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ebe6dc',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  confirmIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f9ebe6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  confirmModalDesc: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  confirmButtonsCol: {
+    width: '100%',
+    gap: 10,
+  },
+  confirmLogoutBtn: {
+    backgroundColor: '#b43b1d',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmLogoutBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  cancelLogoutBtn: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 18,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelLogoutBtnText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
