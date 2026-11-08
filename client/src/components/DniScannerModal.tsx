@@ -227,7 +227,7 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
       const res = await apiService.validarDni(mrz.dni, 'ESCANEO', mrz.fechaNacimiento, mrz.sexo);
 
       if (modo === 'INGRESO') {
-        setErrorMessage('Este DNI aún no tiene una cuenta registrada en DeBarrio. Regístrate primero.');
+        setErrorMessage('Este DNI aún no tiene una cuenta registrada en Ayllu. Regístrate primero.');
         setStatusMessage('DNI no registrado.');
         setIsOcrActive(false);
         return;
@@ -247,7 +247,7 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
     } catch (err: any) {
       if (err instanceof ErrorApi) {
         if (modo === 'ALTA' && (err.codigo === 'DNI_REGISTRADO' || err.codigo === 'MENOR_DE_EDAD')) {
-          setErrorMessage(err.message || 'Este DNI ya está registrado en DeBarrio. Inicia sesión.');
+          setErrorMessage(err.message || 'Este DNI ya está registrado en Ayllu. Inicia sesión.');
           setStatusMessage('DNI ya registrado.');
           setIsOcrActive(false);
           return;

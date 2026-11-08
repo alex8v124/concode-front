@@ -23,7 +23,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onLogin, onRegister }) => {
         
         {/* Sección Superior */}
         <View style={styles.topSection}>
-          {/* Tarjeta Blanca con Logo Recortado de DeBarrio */}
+          {/* Tarjeta Blanca con Logo Recortado de Ayllu */}
           <View style={styles.logoCard}>
             <Image 
               source={require('../../assets/logo-symbol.png')} 
@@ -32,7 +32,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onLogin, onRegister }) => {
             />
           </View>
           
-          <Text style={styles.title}>DeBarrio</Text>
+          <Text style={styles.title}>Ayllu</Text>
           
           <Text style={styles.subtitle}>
             Servicios, favores y ayuda entre vecinos de verdad.

@@ -439,7 +439,7 @@ export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout, onNavigate
 
             <Text style={styles.confirmModalTitle}>¿Estás seguro?</Text>
             <Text style={styles.confirmModalDesc}>
-              Vas a cerrar tu sesión en DeBarrio. Para volver a ingresar necesitarás validar tu acceso nuevamente.
+              Vas a cerrar tu sesión en Ayllu. Para volver a ingresar necesitarás validar tu acceso nuevamente.
             </Text>
 
             <View style={styles.confirmButtonsCol}>
