@@ -145,6 +145,8 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   const [enviandoPanico, setEnviandoPanico] = useState(false);
   const [selectedVecino, setSelectedVecino] = useState<VecinoPerfilData | null>(null);
   const [modalEscribirResenaVisible, setModalEscribirResenaVisible] = useState(false);
+  const [ocultarBarraInferior, setOcultarBarraInferior] = useState(false);
+  const [emergenciaActiva, setEmergenciaActiva] = useState(false);
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
 
@@ -270,7 +272,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   return (
     <View style={styles.mainWrapper}>
       
-      {/* Vista de Tab Mapa, Actividad, Perfil o Inicio */}
+      {/* Vista de Tab Mapa, Emergencia, Actividad, Perfil o Inicio */}
       {tabActiva === 'mapa' ? (
         <BarrioMapaScreen 
           userData={userData} 
@@ -292,6 +294,14 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
               });
             }
           }}
+        />
+      ) : tabActiva === 'emergencia' ? (
+        <DirectorioEmergenciaScreen 
+          userQuadrant={cuadranteMostrado}
+          userAddress={userData.address}
+          onBack={() => setTabActiva('inicio')}
+          onStepModeChange={setOcultarBarraInferior}
+          onEmergencyActiveChange={setEmergenciaActiva}
         />
       ) : tabActiva === 'actividad' ? (
         <MiActividadScreen 
@@ -467,61 +477,64 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         </TouchableOpacity>
       )}
 
-      {/* Barra de Navegación Inferior Estilo Oficial (5 items) */}
-      <View style={styles.bottomNav}>
-        
-        {/* Inicio */}
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setTabActiva('inicio')}
-          activeOpacity={0.7}
-        >
-          <Feather name="home" size={22} color={tabActiva === 'inicio' ? '#144e40' : '#6b7280'} />
-          <Text style={[styles.navLabel, tabActiva === 'inicio' && styles.navLabelActive]}>Inicio</Text>
-        </TouchableOpacity>
+      {/* Barra de Navegación Inferior Estilo Oficial (5 items) — se oculta en pantallas de pasos de Emergencia */}
+      {!(tabActiva === 'emergencia' && ocultarBarraInferior) && (
+        <View style={styles.bottomNav}>
+          
+          {/* Inicio */}
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => setTabActiva('inicio')}
+            activeOpacity={0.7}
+          >
+            <Feather name="home" size={22} color={tabActiva === 'inicio' ? '#144e40' : '#6b7280'} />
+            <Text style={[styles.navLabel, tabActiva === 'inicio' && styles.navLabelActive]}>Inicio</Text>
+          </TouchableOpacity>
 
-        {/* Mapa */}
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setTabActiva('mapa')}
-          activeOpacity={0.7}
-        >
-          <Feather name="map" size={22} color={tabActiva === 'mapa' ? '#144e40' : '#6b7280'} />
-          <Text style={[styles.navLabel, tabActiva === 'mapa' && styles.navLabelActive]}>Mapa</Text>
-        </TouchableOpacity>
+          {/* Mapa */}
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => setTabActiva('mapa')}
+            activeOpacity={0.7}
+          >
+            <Feather name="map" size={22} color={tabActiva === 'mapa' ? '#144e40' : '#6b7280'} />
+            <Text style={[styles.navLabel, tabActiva === 'mapa' && styles.navLabelActive]}>Mapa</Text>
+          </TouchableOpacity>
 
-        {/* Emergencia (Botón SOS Elevado) */}
-        <TouchableOpacity 
-          style={styles.emergencyNavItem} 
-          onPress={() => setVistaSecundaria('emergencia')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.sosButtonCircle}>
-            <Ionicons name="warning" size={26} color="#ffffff" />
-          </View>
-          <Text style={styles.emergencyNavLabel}>Emergencia</Text>
-        </TouchableOpacity>
+          {/* Emergencia (Botón Sirena Elevado) */}
+          <TouchableOpacity 
+            style={styles.emergencyNavItem} 
+            onPress={() => setTabActiva('emergencia')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.sosButtonCircle}>
+              <MaterialCommunityIcons name="alarm-light-outline" size={26} color="#ffffff" />
+              {emergenciaActiva && <View style={styles.sosActiveYellowDot} />}
+            </View>
+            <Text style={styles.emergencyNavLabel}>Emergencia</Text>
+          </TouchableOpacity>
 
-        {/* Actividad */}
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setTabActiva('actividad')}
-          activeOpacity={0.7}
-        >
-          <Feather name="list" size={22} color={tabActiva === 'actividad' ? '#144e40' : '#6b7280'} />
-          <Text style={[styles.navLabel, tabActiva === 'actividad' && styles.navLabelActive]}>Actividad</Text>
-        </TouchableOpacity>
+          {/* Actividad */}
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => setTabActiva('actividad')}
+            activeOpacity={0.7}
+          >
+            <Feather name="bell" size={22} color={tabActiva === 'actividad' ? '#144e40' : '#6b7280'} />
+            <Text style={[styles.navLabel, tabActiva === 'actividad' && styles.navLabelActive]}>Actividad</Text>
+          </TouchableOpacity>
 
-        {/* Perfil */}
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setTabActiva('perfil')}
-          activeOpacity={0.7}
-        >
-          <Feather name="user" size={22} color={tabActiva === 'perfil' ? '#144e40' : '#6b7280'} />
-          <Text style={[styles.navLabel, tabActiva === 'perfil' && styles.navLabelActive]}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Perfil */}
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => setTabActiva('perfil')}
+            activeOpacity={0.7}
+          >
+            <Feather name="user" size={22} color={tabActiva === 'perfil' ? '#144e40' : '#6b7280'} />
+            <Text style={[styles.navLabel, tabActiva === 'perfil' && styles.navLabelActive]}>Perfil</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Modal de Emergencia Vecinal SOS */}
       <Modal visible={modalPanicoVisible} transparent animationType="fade" onRequestClose={() => setModalPanicoVisible(false)}>
@@ -932,20 +945,32 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#ba3816',
+    backgroundColor: '#b43b1d',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: '#f7f8f4',
-    shadowColor: '#ba3816',
+    shadowColor: '#b43b1d',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 8,
+    position: 'relative',
+  },
+  sosActiveYellowDot: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: '#f59e0b',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
   emergencyNavLabel: {
     fontSize: 10,
-    color: '#ba3816',
+    color: '#b43b1d',
     fontWeight: '700',
     marginTop: 3,
   },

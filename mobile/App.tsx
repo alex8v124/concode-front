@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
@@ -10,6 +10,7 @@ import { OcrErrorScreen } from './src/screens/OcrErrorScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
 import { BarrioHomeScreen } from './src/screens/BarrioHomeScreen';
 import { RestablecerAccesoScreen } from './src/screens/RestablecerAccesoScreen';
+import { mobileApiService } from './src/services/api';
 
 export type ScreenName = 
   | 'welcome' 
@@ -25,6 +26,9 @@ export type ScreenName =
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('welcome');
+  const [otpOrigin, setOtpOrigin] = useState<'login' | 'register'>('login');
+  const [otpCanal, setOtpCanal] = useState<'SMS' | 'WHATSAPP'>('SMS');
+  const [otpDevCode, setOtpDevCode] = useState<string>('1234');
   const [userData, setUserData] = useState({
     dni: '',
     firstName: '',
@@ -32,8 +36,8 @@ export default function App() {
     age: '',
     gender: '',
     phone: '987654321',
-    address: 'Jr. Jacarandá 342, San Borja',
-    quadrant: 'San Borja · Sector 4',
+    address: 'Calle 4, Los Pinos',
+    quadrant: 'Urb. Los Pinos, Surco',
     dniVerified: false,
   });
 
@@ -51,8 +55,16 @@ export default function App() {
       {currentScreen === 'login' && (
         <LoginScreen 
           onBack={() => setCurrentScreen('welcome')}
-          onContinue={(identificador) => {
+          onContinue={async (identificador, canal = 'SMS') => {
             setUserData(prev => ({ ...prev, phone: identificador }));
+            setOtpOrigin('login');
+            setOtpCanal(canal);
+            if (!identificador.includes('@')) {
+              const resp = await mobileApiService.solicitarCodigo(identificador, canal);
+              if (resp?.devCode) setOtpDevCode(resp.devCode);
+            } else {
+              setOtpDevCode('1234');
+            }
             setCurrentScreen('otp');
           }}
           onRegister={() => setCurrentScreen('register_step1')}
@@ -93,8 +105,12 @@ export default function App() {
       {currentScreen === 'domicilio_step2' && (
         <DomicilioMapScreen 
           onBack={() => setCurrentScreen('register_step1')}
-          onSaveAddress={(address) => {
-            setUserData(prev => ({ ...prev, address }));
+          onSaveAddress={(address, quadrant) => {
+            setUserData(prev => ({
+              ...prev,
+              address,
+              ...(quadrant ? { quadrant } : {}),
+            }));
             setCurrentScreen('confirm_step3');
           }}
         />
@@ -103,16 +119,31 @@ export default function App() {
       {currentScreen === 'confirm_step3' && (
         <ConfirmScreen 
           userData={userData}
+          onUpdatePhone={(phone) => setUserData(prev => ({ ...prev, phone }))}
           onBack={() => setCurrentScreen('domicilio_step2')}
-          onConfirm={() => setCurrentScreen('otp')}
+          onConfirm={async () => {
+            setOtpOrigin('register');
+            const resp = await mobileApiService.solicitarCodigo(userData.phone || '987654321', otpCanal);
+            if (resp?.devCode) setOtpDevCode(resp.devCode);
+            setCurrentScreen('otp');
+          }}
         />
       )}
 
       {currentScreen === 'otp' && (
         <OtpScreen 
           phone={userData.phone}
-          onBack={() => setCurrentScreen('confirm_step3')}
-          onVerify={() => setCurrentScreen('success')}
+          devCode={otpDevCode}
+          canal={otpCanal}
+          onBack={() => setCurrentScreen(otpOrigin === 'register' ? 'confirm_step3' : 'login')}
+          onVerify={() => {
+            if (otpOrigin === 'register') {
+              mobileApiService.completarAlta();
+              setCurrentScreen('success');
+            } else {
+              setCurrentScreen('barrio');
+            }
+          }}
         />
       )}
 

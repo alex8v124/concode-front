@@ -12,8 +12,8 @@ import {
   Plus, 
   Home, 
   Map as MapIcon, 
-  AlertTriangle, 
-  ListChecks, 
+  Bell,
+  Siren,
   User,
   X,
   PhoneCall,
@@ -149,6 +149,8 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   const [modalFavorVisible, setModalFavorVisible] = useState(false);
   const [selectedFavor, setSelectedFavor] = useState<any | null>(null);
   const [modalMensajesVisible, setModalMensajesVisible] = useState(false);
+  const [ocultarBarraInferior, setOcultarBarraInferior] = useState(false);
+  const [emergenciaActiva, setEmergenciaActiva] = useState(false);
 
   const cuadranteMostrado = userData.quadrantName || 'Urb. Los Pinos, Surco';
 
@@ -187,7 +189,13 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
       {tabActiva === 'mapa' ? (
         <BarrioMapaView onSelectNeighbor={(n) => setSelectedVecino(n)} />
       ) : tabActiva === 'emergencia' ? (
-        <DirectorioEmergenciaView onBack={() => setTabActiva('inicio')} quadrantName={cuadranteMostrado} />
+        <DirectorioEmergenciaView
+          onBack={() => setTabActiva('inicio')}
+          quadrantName={cuadranteMostrado}
+          userAddress={userData.addressText}
+          onStepModeChange={setOcultarBarraInferior}
+          onEmergencyActiveChange={setEmergenciaActiva}
+        />
       ) : tabActiva === 'actividad' ? (
         <MiActividadView />
       ) : tabActiva === 'perfil' ? (
@@ -353,56 +361,61 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
         </>
       )}
 
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-18 bg-white border-t border-gray-200 flex items-center justify-around px-2 z-20">
-        
-        {/* Inicio */}
-        <button 
-          onClick={() => setTabActiva('inicio')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'inicio' ? 'text-[#144e40]' : 'text-gray-500'}`}
-        >
-          <Home className="w-5 h-5" strokeWidth={tabActiva === 'inicio' ? 2.5 : 1.8} />
-          <span className={`text-[10px] mt-1 ${tabActiva === 'inicio' ? 'font-bold' : 'font-medium'}`}>Inicio</span>
-        </button>
+      {/* Bottom Navigation Bar — hidden on Emergency step screens */}
+      {!(tabActiva === 'emergencia' && ocultarBarraInferior) && (
+        <div className="fixed bottom-0 left-0 right-0 h-18 bg-white border-t border-gray-200 flex items-center justify-around px-2 z-20">
+          
+          {/* Inicio */}
+          <button 
+            onClick={() => setTabActiva('inicio')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'inicio' ? 'text-[#144e40]' : 'text-gray-500'}`}
+          >
+            <Home className="w-5 h-5" strokeWidth={tabActiva === 'inicio' ? 2.5 : 1.8} />
+            <span className={`text-[10px] mt-1 ${tabActiva === 'inicio' ? 'font-bold' : 'font-medium'}`}>Inicio</span>
+          </button>
 
-        {/* Mapa */}
-        <button 
-          onClick={() => setTabActiva('mapa')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'mapa' ? 'text-[#144e40]' : 'text-gray-500'}`}
-        >
-          <MapIcon className="w-5 h-5" strokeWidth={tabActiva === 'mapa' ? 2.5 : 1.8} />
-          <span className={`text-[10px] mt-1 ${tabActiva === 'mapa' ? 'font-bold' : 'font-medium'}`}>Mapa</span>
-        </button>
+          {/* Mapa */}
+          <button 
+            onClick={() => setTabActiva('mapa')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'mapa' ? 'text-[#144e40]' : 'text-gray-500'}`}
+          >
+            <MapIcon className="w-5 h-5" strokeWidth={tabActiva === 'mapa' ? 2.5 : 1.8} />
+            <span className={`text-[10px] mt-1 ${tabActiva === 'mapa' ? 'font-bold' : 'font-medium'}`}>Mapa</span>
+          </button>
 
-        {/* Emergencia (Central SOS Button) */}
-        <button 
-          onClick={() => setTabActiva('emergencia')}
-          className="flex flex-col items-center justify-center flex-1 -mt-5 cursor-pointer"
-        >
-          <div className="w-13 h-13 rounded-full bg-[#ba3816] text-white flex items-center justify-center border-3 border-[#f7f8f4] shadow-md hover:scale-105 transition">
-            <AlertTriangle className="w-6 h-6" strokeWidth={2.4} />
-          </div>
-          <span className="text-[10px] font-bold text-[#ba3816] mt-1">Emergencia</span>
-        </button>
+          {/* Emergencia (Central Siren Button) */}
+          <button 
+            onClick={() => setTabActiva('emergencia')}
+            className="flex flex-col items-center justify-center flex-1 -mt-5 cursor-pointer"
+          >
+            <div className="w-13 h-13 rounded-full bg-[#b43b1d] text-white flex items-center justify-center border-3 border-[#f7f8f4] shadow-md hover:scale-105 transition relative">
+              <Siren className="w-6 h-6" strokeWidth={2.2} />
+              {emergenciaActiva && (
+                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 border-2 border-white" />
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-[#b43b1d] mt-1">Emergencia</span>
+          </button>
 
-        {/* Actividad */}
-        <button 
-          onClick={() => setTabActiva('actividad')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'actividad' ? 'text-[#144e40]' : 'text-gray-500'}`}
-        >
-          <ListChecks className="w-5 h-5" strokeWidth={tabActiva === 'actividad' ? 2.5 : 1.8} />
-          <span className={`text-[10px] mt-1 ${tabActiva === 'actividad' ? 'font-bold' : 'font-medium'}`}>Actividad</span>
-        </button>
+          {/* Actividad */}
+          <button 
+            onClick={() => setTabActiva('actividad')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'actividad' ? 'text-[#144e40]' : 'text-gray-500'}`}
+          >
+            <Bell className="w-5 h-5" strokeWidth={tabActiva === 'actividad' ? 2.5 : 1.8} />
+            <span className={`text-[10px] mt-1 ${tabActiva === 'actividad' ? 'font-bold' : 'font-medium'}`}>Actividad</span>
+          </button>
 
-        {/* Perfil */}
-        <button 
-          onClick={() => setTabActiva('perfil')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'perfil' ? 'text-[#144e40]' : 'text-gray-500'}`}
-        >
-          <User className="w-5 h-5" strokeWidth={tabActiva === 'perfil' ? 2.5 : 1.8} />
-          <span className={`text-[10px] mt-1 ${tabActiva === 'perfil' ? 'font-bold' : 'font-medium'}`}>Perfil</span>
-        </button>
-      </div>
+          {/* Perfil */}
+          <button 
+            onClick={() => setTabActiva('perfil')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer ${tabActiva === 'perfil' ? 'text-[#144e40]' : 'text-gray-500'}`}
+          >
+            <User className="w-5 h-5" strokeWidth={tabActiva === 'perfil' ? 2.5 : 1.8} />
+            <span className={`text-[10px] mt-1 ${tabActiva === 'perfil' ? 'font-bold' : 'font-medium'}`}>Perfil</span>
+          </button>
+        </div>
+      )}
 
       {/* Modal de Emergencia */}
       {modalPanicoVisible && (

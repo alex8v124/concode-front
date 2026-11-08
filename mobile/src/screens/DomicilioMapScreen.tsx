@@ -16,7 +16,7 @@ import { mobileApiService } from '../services/api';
 
 interface Props {
   onBack: () => void;
-  onSaveAddress: (address: string) => void;
+  onSaveAddress: (address: string, quadrant?: string) => void;
 }
 
 const TILE_SIZE = 256;
@@ -177,7 +177,7 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
       console.warn('Error al guardar domicilio en backend:', e);
     } finally {
       setIsSaving(false);
-      onSaveAddress(address);
+      onSaveAddress(address, quadrantName);
     }
   };
 
@@ -285,7 +285,7 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
 
               {/* Etiqueta flotante */}
               <View style={styles.pinTooltip}>
-                <Text style={styles.pinTooltipText}>Tu casa aquí</Text>
+                <Text style={styles.pinTooltipText} numberOfLines={1}>Tu casa aquí</Text>
               </View>
             </View>
 
@@ -560,9 +560,11 @@ const styles = StyleSheet.create({
   },
   pinTooltip: {
     position: 'absolute',
-    top: -12,
+    top: -16,
+    minWidth: 96,
+    alignItems: 'center',
     backgroundColor: '#111827',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     shadowColor: '#000',
@@ -575,6 +577,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 10,
     fontWeight: '800',
+    textAlign: 'center',
   },
   gpsRecentBtn: {
     position: 'absolute',
