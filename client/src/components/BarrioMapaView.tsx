@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Search, Layers, ZoomIn, ZoomOut, ChevronUp, ChevronDown } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface NeighborPin {
   id: string;
@@ -112,6 +113,7 @@ export const BarrioMapaView: React.FC<BarrioMapaViewProps> = ({ onSelectNeighbor
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
 
+  const [pinsList, setPinsList] = useState<NeighborPin[]>(NEIGHBOR_PINS);
   const [category, setCategory] = useState<'servicios' | 'favores'>('servicios');
   const [selectedTag, setSelectedTag] = useState('Todos');
   const [selectedNeighbor, setSelectedNeighbor] = useState<NeighborPin>(NEIGHBOR_PINS[0]);
@@ -119,7 +121,29 @@ export const BarrioMapaView: React.FC<BarrioMapaViewProps> = ({ onSelectNeighbor
   const [mapType, setMapType] = useState<'m' | 'y'>('m'); // 'm' = roadmap, 'y' = satellite
   const [sheetExpanded, setSheetExpanded] = useState(false);
 
-  const filteredPins = NEIGHBOR_PINS.filter(pin => {
+  useEffect(() => {
+    apiService.getPinesMapa().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: NeighborPin[] = data.map((p: any) => ({
+          id: String(p.id),
+          initials: p.initials || 'VC',
+          name: p.name || 'Vecino',
+          trade: p.trade || 'Servicio',
+          vouchCount: Number(p.vouchCount ?? 1),
+          distance: p.distance || '200 m',
+          walkingTime: p.walkingTime || '3 min a pie',
+          lat: Number(p.lat ?? -12.0905),
+          lng: Number(p.lng ?? -76.9902),
+          category: p.category === 'favores' ? 'favores' : 'servicios',
+          tag: p.tag || 'Todos',
+        }));
+        setPinsList(mapped);
+        setSelectedNeighbor(mapped[0]);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const filteredPins = pinsList.filter(pin => {
     const matchCat = pin.category === category;
     const matchTag = selectedTag === 'Todos' || pin.tag === selectedTag;
     const matchSearch = search.trim() === '' || 

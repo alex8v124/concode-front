@@ -21,7 +21,7 @@ echo    el cartel "Permitir depuracion por USB".
 echo  - Si la lista sale vacia, activa "Depuracion por USB" en Opciones
 echo    de desarrollador de tu celular (y elige modo "Transferencia de archivos").
 echo.
-echo [2/2] Iniciando servidor de recarga instantanea (0 min de espera)...
+echo [2/2] Iniciando servidor con tunel (evita bloqueo de Firewall de Windows)...
 echo.
-call npx expo start
+call npx expo start --tunnel
 pause

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -8,6 +8,7 @@ import {
   ScrollView 
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { mobileApiService } from '../services/api';
 
 interface Props {
   onBack: () => void;
@@ -88,6 +89,7 @@ const CHAT_FILTERS = ['Todos', 'Servicios', 'Favores', 'Grupos'];
 export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [chatsList, setChatsList] = useState<ChatItem[]>(CHATS_MOCK);
   const [selectedChat, setSelectedChat] = useState<ChatItem | null>(null);
   const [mensajeTexto, setMensajeTexto] = useState('');
   const [mensajesThread, setMensajesThread] = useState<Record<string, Array<{ id: string; texto: string; remitente: 'yo' | 'otro'; hora: string }>>>({
@@ -103,11 +105,49 @@ export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
     ]
   });
 
+  useEffect(() => {
+    mobileApiService.listarConversaciones().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setChatsList(data.map((c: any) => ({
+          id: String(c.id),
+          avatarInitials: c.avatarInitials || 'VC',
+          avatarBg: c.avatarBg || '#d6eee2',
+          avatarColor: c.avatarColor || '#144e40',
+          name: c.name || 'Vecino',
+          subtitle: c.subtitle || 'Chat vecinal',
+          lastMessage: c.lastMessage || '',
+          time: c.time || 'Hoy',
+          unreadCount: Number(c.unreadCount || 0) > 0 ? Number(c.unreadCount) : undefined,
+          isOfficial: Boolean(c.isOfficial),
+        })));
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChat) return;
+    mobileApiService.getMensajesChat(selectedChat.id).then((msgs) => {
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        setMensajesThread(prev => ({
+          ...prev,
+          [selectedChat.id]: msgs.map((m: any) => ({
+            id: String(m.id),
+            texto: m.texto || '',
+            remitente: m.remitente === 'yo' ? 'yo' : 'otro',
+            hora: m.hora || '',
+          })),
+        }));
+      }
+    }).catch(() => {});
+    mobileApiService.marcarChatLeido(selectedChat.id).catch(() => {});
+  }, [selectedChat]);
+
   const handleEnviarMensaje = () => {
     if (!mensajeTexto.trim() || !selectedChat) return;
+    const textoEnviar = mensajeTexto.trim();
     const nuevo = {
       id: Date.now().toString(),
-      texto: mensajeTexto.trim(),
+      texto: textoEnviar,
       remitente: 'yo' as const,
       hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -115,7 +155,9 @@ export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
       ...prev,
       [selectedChat.id]: [...(prev[selectedChat.id] || []), nuevo]
     }));
+    setChatsList(prev => prev.map(c => c.id === selectedChat.id ? { ...c, lastMessage: `Tú: ${textoEnviar}`, time: nuevo.hora } : c));
     setMensajeTexto('');
+    mobileApiService.enviarMensajeChat(selectedChat.id, textoEnviar).catch(() => {});
   };
 
   // ------------------- VISTA CONVERSACIÓN ACTIVA -------------------
@@ -253,7 +295,20 @@ export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
 
       {/* Lista de Chats */}
       <ScrollView contentContainerStyle={styles.chatsList} showsVerticalScrollIndicator={false}>
-        {CHATS_MOCK.map(chat => (
+        {chatsList
+          .filter(chat => {
+            const matchFilter =
+              filter === 'Todos' ||
+              (filter === 'Servicios' && chat.subtitle.toLowerCase().includes('servicio')) ||
+              (filter === 'Favores' && chat.subtitle.toLowerCase().includes('favor')) ||
+              (filter === 'Grupos' && (chat.subtitle.toLowerCase().includes('grupo') || chat.isOfficial));
+            const matchSearch =
+              search.trim() === '' ||
+              chat.name.toLowerCase().includes(search.toLowerCase()) ||
+              chat.subtitle.toLowerCase().includes(search.toLowerCase());
+            return matchFilter && matchSearch;
+          })
+          .map(chat => (
           <TouchableOpacity 
             key={chat.id} 
             style={styles.chatRow} 

@@ -7,7 +7,7 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
-// Almacenamiento en memoria para tokens de trámite (X-Tramite), ingreso por celular y sesión JWT (Bearer)
+// Almacenamiento en memoria para tokens de trÃ¡mite (X-Tramite), ingreso por celular y sesiÃ³n JWT (Bearer)
 let tokenTramiteActual: string | null = null;
 let tokenIngresoActual: string | null = null;
 let tokenAccesoActual: string | null = null;
@@ -159,7 +159,7 @@ export const apiService = {
     } catch (err) {
       console.warn('Error guardarDomicilio:', err);
     }
-    return { exito: true, cuadrante: 'San Borja · Sector 4' };
+    return { exito: true, cuadrante: 'San Borja Â· Sector 4' };
   },
 
   // POST /api/v1/auth/codigo o /api/v1/auth/ingreso/celular
@@ -428,7 +428,7 @@ export const apiService = {
   },
 
   // ==========================================
-  // 3. RECUPERACIÓN DE CUENTA VECINAL
+  // 3. RECUPERACIÃ“N DE CUENTA VECINAL
   // ==========================================
 
   // POST /api/v1/auth/recuperacion/dni
@@ -475,7 +475,7 @@ export const apiService = {
   },
 
   // ==========================================
-  // 4. GEOLOCALIZACIÓN Y CUADRANTES
+  // 4. GEOLOCALIZACIÃ“N Y CUADRANTES
   // ==========================================
 
   // GET /api/v1/geo/resolver-pin?lat=...&lng=...
@@ -489,14 +489,14 @@ export const apiService = {
       if (res.ok) {
         const data = await res.json();
         return {
-          address: data.direccion || 'Jr. Jacarandá 342, San Borja',
+          address: data.direccion || 'Jr. JacarandÃ¡ 342, San Borja',
           quadrant: {
             id: data.cuadranteId,
             code: data.codigo || 'CUAD-SB-04',
             district: data.distrito || 'San Borja',
-            name: data.nombre || 'San Borja · Sector 4'
+            name: data.nombre || 'San Borja Â· Sector 4'
           },
-          safetyMessage: 'Solo vecinos verificados de tu cuadrante verán tu zona.'
+          safetyMessage: 'Solo vecinos verificados de tu cuadrante verÃ¡n tu zona.'
         };
       }
     } catch (err) {
@@ -504,14 +504,14 @@ export const apiService = {
     }
 
     return {
-      address: 'Jr. Jacarandá 342, San Borja',
+      address: 'Jr. JacarandÃ¡ 342, San Borja',
       quadrant: {
         id: 'cuad-2',
         code: 'CUAD-SB-04',
         district: 'San Borja',
-        name: 'San Borja · Sector 4'
+        name: 'San Borja Â· Sector 4'
       },
-      safetyMessage: 'Solo vecinos verificados de tu cuadrante verán tu zona.'
+      safetyMessage: 'Solo vecinos verificados de tu cuadrante verÃ¡n tu zona.'
     };
   },
 
@@ -525,7 +525,7 @@ export const apiService = {
     } catch (err) {
       console.warn('Error getMiCuadrante:', err);
     }
-    return { codigo: 'CUAD-SB-04', nombre: 'San Borja · Sector 4', distrito: 'San Borja' };
+    return { codigo: 'CUAD-SB-04', nombre: 'San Borja Â· Sector 4', distrito: 'San Borja' };
   },
 
   // GET /api/v1/geo/cuadrantes/mio/vecinos
@@ -539,8 +539,8 @@ export const apiService = {
       console.warn('Error getVecinosCuadrante:', err);
     }
     return [
-      { iniciales: 'AM', nombre: 'Ana M.', calle: 'Jr. Jacarandá 300' },
-      { iniciales: 'JC', nombre: 'Juan C.', calle: 'Jr. Jacarandá 340' }
+      { iniciales: 'AM', nombre: 'Ana M.', calle: 'Jr. JacarandÃ¡ 300' },
+      { iniciales: 'JC', nombre: 'Juan C.', calle: 'Jr. JacarandÃ¡ 340' }
     ];
   },
 
@@ -622,7 +622,7 @@ export const apiService = {
     }
     return {
       nacionales: [
-        { servicio: 'Policía Nacional', numero: '105' },
+        { servicio: 'PolicÃ­a Nacional', numero: '105' },
         { servicio: 'Bomberos', numero: '116' },
         { servicio: 'SAMU', numero: '106' }
       ],
@@ -803,7 +803,7 @@ export const apiService = {
   },
 
   // ==========================================
-  // 9. PERFILES PÚBLICOS, VISTO BUENO Y RESEÑAS
+  // 9. PERFILES PÃšBLICOS, VISTO BUENO Y RESEÃ‘AS
   // ==========================================
 
   async getPerfilVecino(vecinoId: string) {
@@ -836,7 +836,7 @@ export const apiService = {
     return null;
   },
 
-  async crearResena(vecinoId: string, reseña: { calificacion: number; recomendo: boolean; destacados: string[]; comentario: string }) {
+  async crearResena(vecinoId: string, reseÃ±a: { calificacion: number; recomendo: boolean; destacados: string[]; comentario: string }) {
     try {
       const res = await fetch(`${API_BASE}/vecinos/${vecinoId}/resenas`, {
         method: 'POST',
@@ -844,7 +844,7 @@ export const apiService = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenAccesoActual || ''}`
         },
-        body: JSON.stringify(reseña)
+        body: JSON.stringify(reseÃ±a)
       });
       if (res.ok) return await res.json();
     } catch (e) {
@@ -866,6 +866,44 @@ export const apiService = {
       if (res.ok) return await res.json();
     } catch (e) {
       console.warn('Fallo actualizarOcupacion:', e);
+    }
+    return { exitoso: true };
+  },
+
+  async obtenerOcupacion() {
+    try {
+      const headers: Record<string, string> = {};
+      if (tokenAccesoActual) headers['Authorization'] = `Bearer ${tokenAccesoActual}`;
+      const res = await fetch(`/vecinos/me/ocupacion`, { headers });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo obtenerOcupacion:', e);
+    }
+    return null;
+  },
+
+  async cambiarEstadoPublicacion(id: string, estado: string) {
+    try {
+      const res = await fetch(`/publicaciones/${id}/estado`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo cambiarEstadoPublicacion:', e);
+    }
+    return { exitoso: true };
+  },
+
+  async eliminarPublicacion(id: string) {
+    try {
+      const res = await fetch(`/publicaciones/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo eliminarPublicacion:', e);
     }
     return { exitoso: true };
   },

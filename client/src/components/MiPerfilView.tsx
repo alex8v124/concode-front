@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { UserFormData } from '../types';
 import { Lock, Zap, Smartphone, Mail, MapPin, LogOut, Check, Plus, Trash2, X } from 'lucide-react';
 import { apiService } from '../services/api';
@@ -34,6 +34,23 @@ export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRe
   const [modalOcupacionVisible, setModalOcupacionVisible] = useState(false);
   const [formOficio, setFormOficio] = useState('Electricidad');
   const [formAnios, setFormAnios] = useState('8');
+
+  useEffect(() => {
+    apiService.obtenerOcupacion().then((data) => {
+      if (data && typeof data.oficio === 'string') {
+        if (data.oficio.trim() === '') {
+          setOcupacion(null);
+        } else {
+          setOcupacion({
+            oficio: data.oficio,
+            anios: String(data.aniosExperiencia ?? 1),
+          });
+          setFormOficio(data.oficio);
+          setFormAnios(String(data.aniosExperiencia ?? 1));
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   const [correo] = useState('No registrado');
   const [mostrarModalConfirmar, setMostrarModalConfirmar] = useState(false);

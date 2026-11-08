@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -153,7 +153,28 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
 
-  const handleSuccessPublish = (data: PublicacionData) => {
+  useEffect(() => {
+    mobileApiService.listarPublicaciones().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: ServicioItem[] = data.map((p: any) => ({
+          id: String(p.id),
+          iniciales: p.iniciales || 'VC',
+          nombre: p.nombre || 'Vecino',
+          distancia: p.distancia || '200 m',
+          rubro: p.rubro || p.titulo || 'Servicio',
+          detalle: p.detalle || p.descripcion || 'Disponible',
+          vistosBuenos: Number(p.vistosBuenos ?? 1),
+          calificacion: Number(p.calificacion ?? 5.0),
+          bgAvatar: p.bgAvatar || (p.categoria === 'favores' ? '#e0e7fb' : '#d6eee2'),
+          colorAvatar: p.colorAvatar || (p.categoria === 'favores' ? '#2b4290' : '#144e40'),
+          categoria: p.categoria === 'favores' ? 'favores' : 'servicios',
+        }));
+        setItemsList(mapped);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleSuccessPublish = async (data: PublicacionData) => {
     const initials = `${userData.firstName?.[0] || 'T'}${userData.lastName?.[0] || 'U'}`.toUpperCase();
     const esServicio = data.tipo === 'servicio';
     const nuevo: ServicioItem = {
@@ -171,6 +192,20 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
     };
     setItemsList(prev => [nuevo, ...prev]);
     setCategoriaActiva(esServicio ? 'servicios' : 'favores');
+    try {
+      const creado = await mobileApiService.crearPublicacion({
+        tipo: data.tipo,
+        titulo: data.titulo,
+        descripcion: data.descripcion,
+        ubicacion: data.ubicacion || cuadranteMostrado,
+        metodoContacto: data.metodoContacto,
+      });
+      if (creado && creado.id) {
+        setItemsList(prev => prev.map(it => it.id === nuevo.id ? { ...it, id: String(creado.id) } : it));
+      }
+    } catch (e) {
+      console.warn('Error al guardar publicación en BD:', e);
+    }
   };
 
   // Si está viendo el perfil de otro vecino
@@ -205,6 +240,12 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
               }
               return item;
             }));
+            mobileApiService.crearResena(selectedVecino.id, {
+              calificacion: review.rating,
+              recomendo: review.recomienda === true,
+              destacados: review.tags || [],
+              comentario: review.comentario || '',
+            }).catch(() => {});
           }}
         />
       </>

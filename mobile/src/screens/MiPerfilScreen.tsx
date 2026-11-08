@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -52,6 +52,21 @@ export const MiPerfilScreen: React.FC<Props> = ({ userData, onLogout, onNavigate
   const [modalOcupacionVisible, setModalOcupacionVisible] = useState(false);
   const [formOficio, setFormOficio] = useState('Electricidad');
   const [formAnios, setFormAnios] = useState('8');
+
+  useEffect(() => {
+    mobileApiService.obtenerOcupacion().then((data) => {
+      if (data && typeof data.oficio === 'string') {
+        if (data.oficio.trim() === '') {
+          setOcupacion(null);
+        } else {
+          const aniosStr = String(data.aniosExperiencia ?? 1);
+          setOcupacion({ oficio: data.oficio, anios: aniosStr });
+          setFormOficio(data.oficio);
+          setFormAnios(aniosStr);
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   const [correo] = useState('No registrado');
   const [mostrarModalConfirmar, setMostrarModalConfirmar] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,6 +11,7 @@ import {
   Alert
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { mobileApiService } from '../services/api';
 
 export interface VecinoPerfilData {
   id: string;
@@ -40,8 +41,59 @@ export const PerfilVecinoScreen: React.FC<Props> = ({
 }) => {
   const [dioVistoBueno, setDioVistoBueno] = useState(false);
   const [vistosCount, setVistosCount] = useState(vecino.vistosBuenos || 42);
+  const [resenasList, setResenasList] = useState<Array<{
+    id: string;
+    autorIniciales: string;
+    autorNombre: string;
+    autorUbicacion: string;
+    calificacion: number;
+    comentario: string;
+    tiempo: string;
+  }>>([
+    {
+      id: 'r1',
+      autorIniciales: 'CM',
+      autorNombre: 'Carmen M.',
+      autorUbicacion: 'Mz. B · a 2 cuadras',
+      calificacion: 5,
+      comentario: 'Vino en menos de media hora por una fuga en la cocina. Cobró lo que dijo y dejó todo limpio.',
+      tiempo: 'Hace 3 días',
+    },
+    {
+      id: 'r2',
+      autorIniciales: 'JR',
+      autorNombre: 'Julio R.',
+      autorUbicacion: 'Mz. A · a 1 cuadra',
+      calificacion: 5,
+      comentario: 'Muy puntual y honesta con los repuestos. Explicó todo antes de comenzar el trabajo.',
+      tiempo: 'Hace 1 semana',
+    },
+  ]);
 
-  const toggleVistoBueno = () => {
+  useEffect(() => {
+    mobileApiService.getPerfilVecino(vecino.id).then((perfil) => {
+      if (perfil) {
+        if (typeof perfil.vistosBuenos === 'number') setVistosCount(perfil.vistosBuenos);
+        if (typeof perfil.dioVistoBueno === 'boolean') setDioVistoBueno(perfil.dioVistoBueno);
+      }
+    }).catch(() => {});
+
+    mobileApiService.listarResenas(vecino.id).then((resenas) => {
+      if (Array.isArray(resenas) && resenas.length > 0) {
+        setResenasList(resenas.map((r: any) => ({
+          id: String(r.id),
+          autorIniciales: r.autorIniciales || 'VC',
+          autorNombre: r.autorNombre || 'Vecino',
+          autorUbicacion: r.autorUbicacion || 'Tu cuadrante',
+          calificacion: Number(r.calificacion ?? 5),
+          comentario: r.comentario || '',
+          tiempo: r.tiempo || 'Reciente',
+        })));
+      }
+    }).catch(() => {});
+  }, [vecino.id]);
+
+  const toggleVistoBueno = async () => {
     if (!dioVistoBueno) {
       setDioVistoBueno(true);
       setVistosCount(c => c + 1);
@@ -50,6 +102,12 @@ export const PerfilVecinoScreen: React.FC<Props> = ({
       setDioVistoBueno(false);
       setVistosCount(c => c - 1);
     }
+    try {
+      const resp = await mobileApiService.alternarVistoBueno(vecino.id);
+      if (resp && typeof resp.vistosBuenos === 'number') {
+        setVistosCount(resp.vistosBuenos);
+      }
+    } catch {}
   };
 
   const handleCompartir = async () => {
@@ -150,67 +208,42 @@ export const PerfilVecinoScreen: React.FC<Props> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Reseña 1 */}
-            <View style={styles.reviewCard}>
-              <View style={styles.reviewHeaderRow}>
-                <View style={styles.reviewerAvatar}>
-                  <Text style={styles.reviewerAvatarText}>CM</Text>
+            {resenasList.map((rev, idx) => (
+              <View key={rev.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeaderRow}>
+                  <View style={[styles.reviewerAvatar, idx % 2 === 1 && { backgroundColor: '#e0e7fb' }]}>
+                    <Text style={[styles.reviewerAvatarText, idx % 2 === 1 && { color: '#2b4290' }]}>
+                      {rev.autorIniciales}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.reviewerName}>{rev.autorNombre}</Text>
+                    <Text style={styles.reviewerDist}>{rev.autorUbicacion}</Text>
+                  </View>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <Ionicons
+                        key={s}
+                        name={s <= rev.calificacion ? 'star' : 'star-outline'}
+                        size={14}
+                        color="#f59e0b"
+                      />
+                    ))}
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.reviewerName}>Carmen M.</Text>
-                  <Text style={styles.reviewerDist}>Mz. B · a 2 cuadras</Text>
-                </View>
-                <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map(s => (
-                    <Ionicons key={s} name="star" size={14} color="#f59e0b" />
-                  ))}
+
+                <Text style={styles.reviewText}>{rev.comentario}</Text>
+
+                <View style={styles.reviewTagsRow}>
+                  <View style={styles.tagVerified}>
+                    <Text style={styles.tagVerifiedText}>Vecino verificado</Text>
+                  </View>
+                  <View style={styles.tagTime}>
+                    <Text style={styles.tagTimeText}>{rev.tiempo}</Text>
+                  </View>
                 </View>
               </View>
-
-              <Text style={styles.reviewText}>
-                Vino en menos de media hora por una fuga en la cocina. Cobró lo que dijo y dejó todo limpio.
-              </Text>
-
-              <View style={styles.reviewTagsRow}>
-                <View style={styles.tagVerified}>
-                  <Text style={styles.tagVerifiedText}>Vecino verificado</Text>
-                </View>
-                <View style={styles.tagTime}>
-                  <Text style={styles.tagTimeText}>Hace 3 días</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Reseña 2 */}
-            <View style={styles.reviewCard}>
-              <View style={styles.reviewHeaderRow}>
-                <View style={[styles.reviewerAvatar, { backgroundColor: '#e0e7fb' }]}>
-                  <Text style={[styles.reviewerAvatarText, { color: '#2b4290' }]}>JR</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.reviewerName}>Julio R.</Text>
-                  <Text style={styles.reviewerDist}>Mz. A · a 1 cuadra</Text>
-                </View>
-                <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map(s => (
-                    <Ionicons key={s} name="star" size={14} color="#f59e0b" />
-                  ))}
-                </View>
-              </View>
-
-              <Text style={styles.reviewText}>
-                Muy puntual y honesta con los repuestos. Explicó todo antes de comenzar el trabajo.
-              </Text>
-
-              <View style={styles.reviewTagsRow}>
-                <View style={styles.tagVerified}>
-                  <Text style={styles.tagVerifiedText}>Vecino verificado</Text>
-                </View>
-                <View style={styles.tagTime}>
-                  <Text style={styles.tagTimeText}>Hace 1 semana</Text>
-                </View>
-              </View>
-            </View>
+            ))}
 
           </View>
 

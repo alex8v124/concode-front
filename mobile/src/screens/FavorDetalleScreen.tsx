@@ -8,6 +8,7 @@ import {
   Alert 
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { mobileApiService } from '../services/api';
 
 interface Props {
   onBack: () => void;
@@ -19,6 +20,7 @@ export const FavorDetalleScreen: React.FC<Props> = ({ onBack, onPedirPrestado })
 
   const handlePedir = () => {
     setSolicitado(true);
+    mobileApiService.solicitarFavor('5', 'Solicitud de préstamo del taladro percutor').catch(() => {});
     Alert.alert(
       'Solicitud Enviada',
       'Le notificamos a Julio R. que deseas pedir prestado el taladro. ¿Deseas coordinar los detalles por el chat interno?',

@@ -924,6 +924,117 @@ export const mobileApiService = {
   // 12. PINES DEL MAPA GEORREFERENCIADOS
   // ==========================================
 
+  async cambiarEstadoPublicacion(id: string, estado: string) {
+    try {
+      const res = await fetch(`${API_BASE}/publicaciones/${id}/estado`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo cambiarEstadoPublicacion:', e);
+    }
+    return { exitoso: true };
+  },
+
+  async eliminarPublicacion(id: string) {
+    try {
+      const res = await fetch(`${API_BASE}/publicaciones/${id}`, { method: 'DELETE' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo eliminarPublicacion:', e);
+    }
+    return { eliminado: true };
+  },
+
+  async obtenerOcupacion() {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/me/ocupacion`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo obtenerOcupacion:', e);
+    }
+    return null;
+  },
+
+  async iniciarChat(vecinoId: string, mensajeInicial?: string) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/conversaciones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vecinoId, mensajeInicial })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo iniciarChat:', e);
+    }
+    return null;
+  },
+
+  async marcarChatLeido(conversacionId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo marcarChatLeido:', e);
+    }
+    return { exitoso: true };
+  },
+
+  async bloquearUsuarioChat(usuarioId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/usuarios/${usuarioId}/bloquear`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo bloquearUsuarioChat:', e);
+    }
+    return { exitoso: true };
+  },
+
+  async reportarUsuarioChat(usuarioId: string, motivo: string) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/usuarios/${usuarioId}/reportar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motivo })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo reportarUsuarioChat:', e);
+    }
+    return { exitoso: true };
+  },
+
+  async listarNecesidadesTablero(id: string = 'tablero-1') {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/tablero/${id}/necesidades`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarNecesidadesTablero:', e);
+    }
+    return null;
+  },
+
+  async registrarAporteTablero(id: string = 'tablero-1', datos: { necesidadId?: string; descripcion: string; cantidad: number }) {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/tablero/${id}/aportes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        },
+        body: JSON.stringify(datos)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo registrarAporteTablero:', e);
+    }
+    return null;
+  },
+
   async getPinesMapa(categoria?: string, tag?: string) {
     try {
       const q = new URLSearchParams();

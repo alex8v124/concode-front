@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,6 +9,7 @@ import {
   Alert
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { mobileApiService } from '../services/api';
 
 interface Props {
   onOpenChat?: () => void;
@@ -63,10 +64,98 @@ export const MiActividadScreen: React.FC<Props> = ({ onOpenChat, onOpenPublicar 
     },
   ]);
 
+  const [favoresHice, setFavoresHice] = useState([
+    {
+      id: 'h1',
+      tipoLabel: 'Favor cumplido',
+      tipoBg: '#d6eee2',
+      tipoColor: '#144e40',
+      tiempo: 'Hace 2 días',
+      titulo: 'Presté taladro percutor a Rosa Q.',
+      detalle: 'Completado con éxito · Calificado con 5 estrellas',
+    },
+    {
+      id: 'h2',
+      tipoLabel: 'Ayuda comunitaria',
+      tipoBg: '#e0e7fb',
+      tipoColor: '#2b4290',
+      tiempo: 'Hace 5 días',
+      titulo: 'Remoción de escombros en calle 4',
+      detalle: 'Aporte solidario por alerta de lluvias en Los Pinos',
+    },
+  ]);
+
+  const [favoresPedi, setFavoresPedi] = useState([
+    {
+      id: 'p1',
+      tipoLabel: 'Favor recibido',
+      tipoBg: '#ffedd5',
+      tipoColor: '#9a3412',
+      tiempo: 'Hace 1 semana',
+      titulo: 'Pedí escalera para reparar canaleta',
+      detalle: 'Te prestó Teresa L. · Devolución confirmada',
+    },
+  ]);
+
+  useEffect(() => {
+    mobileApiService.listarMisPublicaciones().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setPublicaciones(data.map((d: any) => {
+          const esPrestamo = d.tipo === 'presto' || d.tipoAccion === 'prestamo';
+          const esDonacion = d.tipo === 'dono' || d.tipoAccion === 'donacion';
+          const estado = d.estado || 'Activo';
+          return {
+            id: String(d.id),
+            tipo: d.tipo || 'servicio',
+            tipoLabel: d.tipoLabel || (esPrestamo ? 'Presto' : esDonacion ? 'Dono' : 'Mi servicio'),
+            tipoBg: esPrestamo ? '#e0e7fb' : esDonacion ? '#d6eee2' : '#144e40',
+            tipoColor: esPrestamo ? '#2b4290' : esDonacion ? '#144e40' : '#ffffff',
+            estado,
+            estadoBg: estado === 'Activo' ? '#d6eee2' : estado === 'En curso' ? '#fef3c7' : '#f3f4f6',
+            estadoColor: estado === 'Activo' ? '#144e40' : estado === 'En curso' ? '#b45309' : '#6b7280',
+            titulo: d.titulo || 'Publicación',
+            detalle: d.detalle || 'Publicado en tu cuadrante',
+            tipoAccion: d.tipoAccion || (esPrestamo ? 'prestamo' : esDonacion ? 'donacion' : 'servicio'),
+          };
+        }));
+      }
+    }).catch(() => {});
+
+    mobileApiService.listarFavoresHice().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setFavoresHice(data.map((d: any) => ({
+          id: String(d.id),
+          tipoLabel: d.tipoLabel || 'Favor cumplido',
+          tipoBg: '#d6eee2',
+          tipoColor: '#144e40',
+          tiempo: d.tiempo || 'Reciente',
+          titulo: d.titulo || 'Favor realizado',
+          detalle: d.detalle || 'Completado',
+        })));
+      }
+    }).catch(() => {});
+
+    mobileApiService.listarFavoresPedi().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setFavoresPedi(data.map((d: any) => ({
+          id: String(d.id),
+          tipoLabel: d.tipoLabel || 'Favor recibido',
+          tipoBg: '#ffedd5',
+          tipoColor: '#9a3412',
+          tiempo: d.tiempo || 'Reciente',
+          titulo: d.titulo || 'Favor solicitado',
+          detalle: d.detalle || 'Devolución confirmada',
+        })));
+      }
+    }).catch(() => {});
+  }, []);
+
   const handlePausar = (id: string) => {
+    let estadoEnviar = 'Pausado';
     setPublicaciones(prev => prev.map(p => {
       if (p.id === id) {
         const nuevoEstado = p.estado === 'Activo' ? 'Pausado' : 'Activo';
+        estadoEnviar = nuevoEstado;
         return {
           ...p,
           estado: nuevoEstado,
@@ -76,6 +165,7 @@ export const MiActividadScreen: React.FC<Props> = ({ onOpenChat, onOpenPublicar 
       }
       return p;
     }));
+    mobileApiService.cambiarEstadoPublicacion(id, estadoEnviar).catch(() => {});
   };
 
   const handleDevuelto = (id: string) => {
@@ -91,6 +181,7 @@ export const MiActividadScreen: React.FC<Props> = ({ onOpenChat, onOpenPublicar 
       }
       return p;
     }));
+    mobileApiService.confirmarDevolucionFavor(id).catch(() => {});
     Alert.alert('¡Préstamo Completado!', 'Se registró la devolución y se actualizó tu historial solidario.');
   };
 
@@ -246,43 +337,36 @@ export const MiActividadScreen: React.FC<Props> = ({ onOpenChat, onOpenPublicar 
         {/* Contenido de la pestaña Hice */}
         {tab === 'hice' && (
           <View style={styles.cardsList}>
-            <View style={styles.activityCard}>
-              <View style={styles.badgesRow}>
-                <View style={[styles.pillBadge, { backgroundColor: '#d6eee2' }]}>
-                  <Text style={[styles.pillBadgeText, { color: '#144e40' }]}>Favor cumplido</Text>
+            {favoresHice.map(fav => (
+              <View key={fav.id} style={styles.activityCard}>
+                <View style={styles.badgesRow}>
+                  <View style={[styles.pillBadge, { backgroundColor: fav.tipoBg }]}>
+                    <Text style={[styles.pillBadgeText, { color: fav.tipoColor }]}>{fav.tipoLabel}</Text>
+                  </View>
+                  <Text style={styles.timeMuted}>{fav.tiempo}</Text>
                 </View>
-                <Text style={styles.timeMuted}>Hace 2 días</Text>
+                <Text style={styles.cardTitle}>{fav.titulo}</Text>
+                <Text style={styles.cardSubtitle}>{fav.detalle}</Text>
               </View>
-              <Text style={styles.cardTitle}>Presté taladro percutor a Rosa Q.</Text>
-              <Text style={styles.cardSubtitle}>Completado con éxito · Calificado con 5 estrellas</Text>
-            </View>
-
-            <View style={styles.activityCard}>
-              <View style={styles.badgesRow}>
-                <View style={[styles.pillBadge, { backgroundColor: '#e0e7fb' }]}>
-                  <Text style={[styles.pillBadgeText, { color: '#2b4290' }]}>Ayuda comunitaria</Text>
-                </View>
-                <Text style={styles.timeMuted}>Hace 5 días</Text>
-              </View>
-              <Text style={styles.cardTitle}>Remoción de escombros en calle 4</Text>
-              <Text style={styles.cardSubtitle}>Aporte solidario por alerta de lluvias en Los Pinos</Text>
-            </View>
+            ))}
           </View>
         )}
 
         {/* Contenido de la pestaña Pedí */}
         {tab === 'pedi' && (
           <View style={styles.cardsList}>
-            <View style={styles.activityCard}>
-              <View style={styles.badgesRow}>
-                <View style={[styles.pillBadge, { backgroundColor: '#ffedd5' }]}>
-                  <Text style={[styles.pillBadgeText, { color: '#9a3412' }]}>Favor recibido</Text>
+            {favoresPedi.map(fav => (
+              <View key={fav.id} style={styles.activityCard}>
+                <View style={styles.badgesRow}>
+                  <View style={[styles.pillBadge, { backgroundColor: fav.tipoBg }]}>
+                    <Text style={[styles.pillBadgeText, { color: fav.tipoColor }]}>{fav.tipoLabel}</Text>
+                  </View>
+                  <Text style={styles.timeMuted}>{fav.tiempo}</Text>
                 </View>
-                <Text style={styles.timeMuted}>Hace 1 semana</Text>
+                <Text style={styles.cardTitle}>{fav.titulo}</Text>
+                <Text style={styles.cardSubtitle}>{fav.detalle}</Text>
               </View>
-              <Text style={styles.cardTitle}>Pedí escalera para reparar canaleta</Text>
-              <Text style={styles.cardSubtitle}>Te prestó Teresa L. · Devolución confirmada</Text>
-            </View>
+            ))}
           </View>
         )}
 

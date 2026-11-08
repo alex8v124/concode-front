@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -11,6 +11,7 @@ import {
   LayoutChangeEvent 
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { mobileApiService } from '../services/api';
 
 interface Props {
   userData: {
@@ -123,11 +124,34 @@ const NEIGHBOR_PINS: NeighborPin[] = [
 const FILTER_TAGS = ['Todos', 'Gasfitería', 'Electricidad', 'Clases'];
 
 export const BarrioMapaScreen: React.FC<Props> = ({ userData, onSelectNeighbor }) => {
+  const [pinsList, setPinsList] = useState<NeighborPin[]>(NEIGHBOR_PINS);
   const [category, setCategory] = useState<'servicios' | 'favores'>('servicios');
   const [selectedTag, setSelectedTag] = useState('Todos');
   const [selectedNeighbor, setSelectedNeighbor] = useState<NeighborPin>(NEIGHBOR_PINS[0]);
   const [search, setSearch] = useState('');
   const [sheetExpanded, setSheetExpanded] = useState(false);
+
+  useEffect(() => {
+    mobileApiService.getPinesMapa().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: NeighborPin[] = data.map((p: any) => ({
+          id: String(p.id),
+          initials: p.initials || 'VC',
+          name: p.name || 'Vecino',
+          trade: p.trade || 'Servicio',
+          vouchCount: Number(p.vouchCount ?? 1),
+          distance: p.distance || '200 m',
+          walkingTime: p.walkingTime || '3 min a pie',
+          lat: Number(p.lat ?? -12.0905),
+          lng: Number(p.lng ?? -76.9902),
+          category: p.category === 'favores' ? 'favores' : 'servicios',
+          tag: p.tag || 'Todos',
+        }));
+        setPinsList(mapped);
+        setSelectedNeighbor(mapped[0]);
+      }
+    }).catch(() => {});
+  }, []);
   
   // Controles de Mapa Google Maps
   const [zoom, setZoom] = useState(16);
@@ -137,7 +161,7 @@ export const BarrioMapaScreen: React.FC<Props> = ({ userData, onSelectNeighbor }
     height: Dimensions.get('window').height - 120 
   });
 
-  const filteredPins = NEIGHBOR_PINS.filter(pin => {
+  const filteredPins = pinsList.filter(pin => {
     const matchCat = pin.category === category;
     const matchTag = selectedTag === 'Todos' || pin.tag === selectedTag;
     const matchSearch = search.trim() === '' || 

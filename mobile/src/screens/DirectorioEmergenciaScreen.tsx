@@ -202,6 +202,34 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
     }
   }, [sinSenal, avisosEnCola]);
 
+  // Cargar necesidades y estado del tablero desde Supabase
+  useEffect(() => {
+    mobileApiService.listarNecesidadesTablero(userQuadrant).then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        const nec = data
+          .filter((d: any) => d.tipo !== 'ofrece')
+          .map((d: any) => ({
+            id: String(d.id),
+            nombre: d.nombre || 'Recurso',
+            prioridad: (d.prioridad === 'alta' ? 'alta' : 'media') as 'alta' | 'media',
+            iconName: (d.iconName || 'medical-bag') as CategoriaPublicarOption['iconName'],
+            reunido: Number(d.reunido ?? 0),
+            meta: Number(d.meta ?? 20),
+            unidad: d.unidad || '',
+            aportado: false,
+            colorBarra: d.prioridad === 'alta' ? '#b43b1d' : '#1f6f4a',
+          }));
+        if (nec.length > 0) setItemsNecesidad(nec);
+      }
+    }).catch(() => {});
+
+    mobileApiService.getEstadoTablero(userQuadrant).then((est) => {
+      if (est && typeof est.vecinosASalvo === 'number') {
+        setSalvoCount(est.vecinosASalvo);
+      }
+    }).catch(() => {});
+  }, [userQuadrant]);
+
   const renderBannerSinSenal = (compact = false) => {
     if (!sinSenal) return null;
     return (
@@ -232,6 +260,13 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
         if (item.id !== id) return item;
         const nuevoEstado = !item.aportado;
         const delta = item.unidad === 'L' ? 10 : 1;
+        if (nuevoEstado) {
+          mobileApiService.registrarAporteTablero('tablero-1', {
+            necesidadId: id,
+            descripcion: item.nombre,
+            cantidad: delta,
+          }).catch(() => {});
+        }
         return {
           ...item,
           aportado: nuevoEstado,
@@ -247,9 +282,10 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
   };
 
   const handleConfirmarPublicacion = () => {
+    const nombreRecurso = categoriaPublicar.nombre === 'Abrigo' ? 'Frazadas' : categoriaPublicar.nombre;
     const nuevoItem: ItemTablero = {
       id: Date.now().toString(),
-      nombre: categoriaPublicar.nombre === 'Abrigo' ? 'Frazadas' : categoriaPublicar.nombre,
+      nombre: nombreRecurso,
       iconName: categoriaPublicar.iconName,
       reunido: modoPublicar === 'necesito' ? 0 : cantidadPublicar,
       meta: modoPublicar === 'necesito' ? Math.max(cantidadPublicar, 20) : Math.max(cantidadPublicar * 2, 20),
@@ -257,6 +293,11 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
       aportado: false,
       colorBarra: modoPublicar === 'necesito' ? '#b43b1d' : '#1d4f3c',
     };
+
+    mobileApiService.registrarAporteTablero('tablero-1', {
+      descripcion: `${modoPublicar === 'necesito' ? 'Necesito' : 'Ofrezco'} ${nombreRecurso}`,
+      cantidad: cantidadPublicar,
+    }).catch(() => {});
 
     if (modoPublicar === 'necesito') {
       setItemsNecesidad(prev => {

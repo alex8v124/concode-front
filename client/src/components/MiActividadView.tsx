@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../services/api';
 
 type TabActividad = 'publicaciones' | 'hice' | 'pedi';
 
@@ -41,10 +42,35 @@ export const MiActividadView: React.FC = () => {
     },
   ]);
 
+  useEffect(() => {
+    apiService.listarMisPublicaciones().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setPublicaciones(data.map((d: any) => {
+          const esPrestamo = d.tipo === 'presto' || d.tipoAccion === 'prestamo';
+          const esDonacion = d.tipo === 'dono' || d.tipoAccion === 'donacion';
+          const estado = d.estado || 'Activo';
+          return {
+            id: String(d.id),
+            tipo: d.tipo || 'servicio',
+            tipoLabel: d.tipoLabel || (esPrestamo ? 'Presto' : esDonacion ? 'Dono' : 'Mi servicio'),
+            tipoBg: esPrestamo ? 'bg-[#e0e7fb] text-[#2b4290]' : esDonacion ? 'bg-[#d6eee2] text-[#144e40]' : 'bg-[#144e40] text-white',
+            estado,
+            estadoBg: estado === 'Activo' ? 'bg-[#d6eee2] text-[#144e40]' : estado === 'En curso' ? 'bg-[#fef3c7] text-[#b45309]' : 'bg-gray-100 text-gray-600',
+            titulo: d.titulo || 'Publicación',
+            detalle: d.detalle || 'Publicado en tu cuadrante',
+            tipoAccion: d.tipoAccion || (esPrestamo ? 'prestamo' : esDonacion ? 'donacion' : 'servicio'),
+          };
+        }));
+      }
+    }).catch(() => {});
+  }, []);
+
   const handlePausar = (id: string) => {
+    let estadoEnviar = 'Pausado';
     setPublicaciones(prev => prev.map(p => {
       if (p.id === id) {
         const nuevo = p.estado === 'Activo' ? 'Pausado' : 'Activo';
+        estadoEnviar = nuevo;
         return {
           ...p,
           estado: nuevo,
@@ -53,6 +79,7 @@ export const MiActividadView: React.FC = () => {
       }
       return p;
     }));
+    apiService.cambiarEstadoPublicacion(id, estadoEnviar).catch(() => {});
   };
 
   const handleDevuelto = (id: string) => {
@@ -67,6 +94,7 @@ export const MiActividadView: React.FC = () => {
       }
       return p;
     }));
+    apiService.confirmarDevolucionFavor(id).catch(() => {});
     alert('Devolución registrada en el cuadrante.');
   };
 
