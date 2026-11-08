@@ -36,7 +36,14 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
     { id: '1', nombre: 'Agua embotellada', prioridad: 'Prioridad alta', reunido: 120, meta: 300, unidad: 'L', aportado: false },
     { id: '2', nombre: 'Frazadas', prioridad: 'Prioridad alta', reunido: 45, meta: 80, unidad: '', aportado: false },
     { id: '3', nombre: 'Botiquín básico', prioridad: 'Prioridad alta', reunido: 6, meta: 20, unidad: '', aportado: false },
-    { id: '4', nombre: 'Voluntarios para limpieza', prioridad: 'Prioridad media', reunido: 8, meta: 15, unidad: 'personas', aportado: false },
+    { id: '4', nombre: 'Voluntarios para limpieza', prioridad: 'Prioridad alta', reunido: 8, meta: 15, unidad: 'personas', aportado: false },
+  ]);
+
+  const [itemsOfrecidos, setItemsOfrecidos] = useState([
+    { id: '1', nombre: '10 Bidones de agua mineral', vecino: 'Julio R. · Mz. A', tiempo: 'Hace 15 min', contactado: false },
+    { id: '2', nombre: '4 Frazadas y ropa abrigadora', vecino: 'Rosa Q. · Mz. C', tiempo: 'Hace 25 min', contactado: false },
+    { id: '3', nombre: 'Botiquín con gasas y alcohol', vecino: 'Lucía T. · Mz. B', tiempo: 'Hace 40 min', contactado: false },
+    { id: '4', nombre: 'Apoyo físico para remoción de escombros', vecino: 'Jorge C. · Mz. D', tiempo: 'Hace 1 hora', contactado: false },
   ]);
 
   const handleLlamar = (numero: string, nombre: string) => {
@@ -133,47 +140,81 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Lista de Necesidades con Barra de Progreso y Botón Aporto */}
+          {/* Lista de Necesidades o de Ofrecimientos */}
           <ScrollView contentContainerStyle={styles.tableroList} showsVerticalScrollIndicator={false}>
-            {itemsNecesidad.map(item => {
-              const porcentaje = Math.min(100, Math.round((item.reunido / item.meta) * 100));
-              return (
-                <View key={item.id} style={styles.needCard}>
-                  <View style={styles.needCardTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.needTitle}>{item.nombre}</Text>
-                      <Text style={styles.needPriority}>{item.prioridad}</Text>
-                    </View>
+            {tabTablero === 'necesita' ? (
+              <>
+                {itemsNecesidad.map(item => {
+                  const porcentaje = Math.min(100, Math.round((item.reunido / item.meta) * 100));
+                  return (
+                    <View key={item.id} style={styles.needCard}>
+                      <View style={styles.needCardTop}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.needTitle}>{item.nombre}</Text>
+                          <Text style={styles.needPriority}>{item.prioridad}</Text>
+                        </View>
 
-                    <TouchableOpacity 
-                      style={[styles.aportoBtn, item.aportado && styles.aportoBtnActive]}
-                      onPress={() => handleAportar(item.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.aportoBtnText, item.aportado && styles.aportoBtnTextActive]}>
-                        {item.aportado ? 'Aportado' : 'Aporto'}
+                        <TouchableOpacity 
+                          style={[styles.aportoBtn, item.aportado && styles.aportoBtnActive]}
+                          onPress={() => handleAportar(item.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.aportoBtnText, item.aportado && styles.aportoBtnTextActive]}>
+                            {item.aportado ? 'Aportado' : 'Aporto'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Barra de Progreso */}
+                      <View style={styles.progressBarBg}>
+                        <View style={[styles.progressBarFill, { width: `${porcentaje}%` }]} />
+                      </View>
+
+                      <Text style={styles.gatheredText}>
+                        {item.reunido} {item.unidad} de {item.meta} {item.unidad} reunidos
                       </Text>
-                    </TouchableOpacity>
+                    </View>
+                  );
+                })}
+
+                <TouchableOpacity 
+                  style={styles.nuevaAlertaLink}
+                  onPress={() => setSubVista('reportar_necesidad')}
+                >
+                  <Text style={styles.nuevaAlertaLinkText}>+ Reportar otra necesidad para el barrio</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {itemsOfrecidos.map(item => (
+                  <View key={item.id} style={styles.needCard}>
+                    <View style={styles.needCardTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.needTitle}>{item.nombre}</Text>
+                        <Text style={[styles.needPriority, { color: '#144e40' }]}>
+                          Ofrecido por {item.vecino} · <Text style={{ color: '#6b7280' }}>{item.tiempo}</Text>
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity 
+                        style={[styles.aportoBtn, { backgroundColor: '#144e40' }]}
+                        onPress={() => Alert.alert('Ayuda coordinada', 'Se abrió la comunicación directa con tu vecino.')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.aportoBtnText}>Aceptar</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
+                ))}
 
-                  {/* Barra de Progreso */}
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${porcentaje}%` }]} />
-                  </View>
-
-                  <Text style={styles.gatheredText}>
-                    {item.reunido} {item.unidad} de {item.meta} {item.unidad} reunidos
-                  </Text>
-                </View>
-              );
-            })}
-
-            <TouchableOpacity 
-              style={styles.nuevaAlertaLink}
-              onPress={() => setSubVista('reportar_necesidad')}
-            >
-              <Text style={styles.nuevaAlertaLinkText}>+ Reportar otra necesidad para el barrio</Text>
-            </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.nuevaAlertaLink, { marginTop: 12 }]}
+                  onPress={() => setSubVista('ofrecer_ayuda')}
+                >
+                  <Text style={[styles.nuevaAlertaLinkText, { color: '#144e40' }]}>+ Ofrecer un aporte solidario</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </ScrollView>
         </View>
       </SafeAreaView>
@@ -290,15 +331,24 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
   // ------------------------- VISTA: REPORTAR NECESIDAD O OFRECER AYUDA -------------------------
   if (subVista === 'reportar_necesidad' || subVista === 'ofrecer_ayuda') {
     const esNecesidad = subVista === 'reportar_necesidad';
-    const catalogo = [
-      { id: '1', nombre: 'Agua', desc: 'Embotellada o bidones', alert: true },
+    const catalogo = esNecesidad ? [
+      { id: '1', nombre: 'Agua', desc: 'Embotellada o bidones', alert: false },
       { id: '2', nombre: 'Alimentos', desc: 'Víveres o comida lista', alert: false },
-      { id: '3', nombre: 'Abrigo', desc: 'Frazadas, ropa', alert: true },
-      { id: '4', nombre: 'Botiquín', desc: 'Primeros auxilios', alert: true },
-      { id: '5', nombre: 'Voluntarios', desc: 'Manos para ayudar', alert: true },
+      { id: '3', nombre: 'Abrigo', desc: 'Frazadas, ropa', alert: false },
+      { id: '4', nombre: 'Botiquín', desc: 'Primeros auxilios', alert: false },
+      { id: '5', nombre: 'Voluntarios', desc: 'Manos para ayudar', alert: false },
       { id: '6', nombre: 'Transporte', desc: 'Llevar personas o cosas', alert: false },
       { id: '7', nombre: 'Alojamiento', desc: 'Un lugar para dormir', alert: false },
       { id: '8', nombre: 'Otro', desc: 'Algo distinto', alert: false },
+    ] : [
+      { id: '1', nombre: 'Agua', desc: 'Se necesita ahora', alert: true },
+      { id: '2', nombre: 'Alimentos', desc: 'Sin pedidos activos', alert: false },
+      { id: '3', nombre: 'Abrigo', desc: 'Se necesita ahora', alert: true },
+      { id: '4', nombre: 'Botiquín', desc: 'Se necesita ahora', alert: true },
+      { id: '5', nombre: 'Mi tiempo', desc: 'Se necesita ahora', alert: true },
+      { id: '6', nombre: 'Transporte', desc: 'Sin pedidos activos', alert: false },
+      { id: '7', nombre: 'Alojamiento', desc: 'Sin pedidos activos', alert: false },
+      { id: '8', nombre: 'Otro', desc: 'Sin pedidos activos', alert: false },
     ];
 
     return (
@@ -345,8 +395,8 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.favorCardTitle}>{c.nombre}</Text>
-                  <Text style={styles.favorCardSubtitle}>
-                    {c.alert ? 'Se necesita ahora' : c.desc}
+                  <Text style={[styles.favorCardSubtitle, c.alert && styles.alertText]}>
+                    {c.desc}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -1054,5 +1104,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     lineHeight: 16,
+  },
+  alertText: {
+    color: '#b93815',
+    fontWeight: '700',
   },
 });
