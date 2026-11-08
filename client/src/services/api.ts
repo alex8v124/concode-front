@@ -583,5 +583,287 @@ export const apiService = {
       console.warn('Error getAlertasActivas:', err);
     }
     return [];
+  },
+
+  // ==========================================
+  // 7. PUBLICACIONES Y FAVORES (FIGMA SCREENS)
+  // ==========================================
+
+  async listarPublicaciones(categoria?: string, tipo?: string, buscar?: string) {
+    try {
+      const q = new URLSearchParams();
+      if (categoria) q.append('categoria', categoria);
+      if (tipo) q.append('tipo', tipo);
+      if (buscar) q.append('buscar', buscar);
+      const res = await fetch(`${API_BASE}/publicaciones?${q.toString()}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarPublicaciones:', e);
+    }
+    return null;
+  },
+
+  async crearPublicacion(datos: { tipo: string; titulo: string; descripcion?: string; ubicacion?: string; metodoContacto?: string; condiciones?: string[] }) {
+    try {
+      const res = await fetch(`${API_BASE}/publicaciones`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        },
+        body: JSON.stringify(datos)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo crearPublicacion:', e);
+    }
+    return null;
+  },
+
+  async solicitarFavor(id: string, notas?: string) {
+    try {
+      const res = await fetch(`${API_BASE}/publicaciones/${id}/solicitar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        },
+        body: JSON.stringify({ mensaje: notas || '' })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo solicitarFavor:', e);
+    }
+    return { exitoso: true };
+  },
+
+  // ==========================================
+  // 8. ACTIVIDAD VECINAL (MI ACTIVIDAD)
+  // ==========================================
+
+  async listarMisPublicaciones() {
+    try {
+      const res = await fetch(`${API_BASE}/actividad/mis-publicaciones`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarMisPublicaciones:', e);
+    }
+    return null;
+  },
+
+  async listarFavoresHice() {
+    try {
+      const res = await fetch(`${API_BASE}/actividad/hice`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarFavoresHice:', e);
+    }
+    return null;
+  },
+
+  async listarFavoresPedi() {
+    try {
+      const res = await fetch(`${API_BASE}/actividad/pedi`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarFavoresPedi:', e);
+    }
+    return null;
+  },
+
+  async confirmarDevolucionFavor(id: string) {
+    try {
+      const res = await fetch(`${API_BASE}/actividad/favores/${id}/confirmar-devolucion`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo confirmarDevolucionFavor:', e);
+    }
+    return { exitoso: true };
+  },
+
+  // ==========================================
+  // 9. PERFILES PÚBLICOS, VISTO BUENO Y RESEÑAS
+  // ==========================================
+
+  async getPerfilVecino(vecinoId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/${vecinoId}/perfil`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo getPerfilVecino:', e);
+    }
+    return null;
+  },
+
+  async alternarVistoBueno(vecinoId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/${vecinoId}/visto-bueno`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo alternarVistoBueno:', e);
+    }
+    return null;
+  },
+
+  async listarResenas(vecinoId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/${vecinoId}/resenas`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarResenas:', e);
+    }
+    return null;
+  },
+
+  async crearResena(vecinoId: string, reseña: { calificacion: number; recomendo: boolean; destacados: string[]; comentario: string }) {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/${vecinoId}/resenas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        },
+        body: JSON.stringify(reseña)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo crearResena:', e);
+    }
+    return null;
+  },
+
+  async actualizarOcupacion(datos: { oficio: string; aniosExperiencia: number; visibleDirectorio: boolean }) {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/me/ocupacion`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        },
+        body: JSON.stringify(datos)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo actualizarOcupacion:', e);
+    }
+    return { exitoso: true };
+  },
+
+  // ==========================================
+  // 10. MENSAJES Y CHAT INTERNO VECINAL
+  // ==========================================
+
+  async listarConversaciones(filtro?: string, buscar?: string) {
+    try {
+      const q = new URLSearchParams();
+      if (filtro) q.append('filtro', filtro);
+      if (buscar) q.append('buscar', buscar);
+      const res = await fetch(`${API_BASE}/chat/conversaciones?${q.toString()}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo listarConversaciones:', e);
+    }
+    return null;
+  },
+
+  async getMensajesChat(conversacionId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/conversaciones/${conversacionId}/mensajes`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo getMensajesChat:', e);
+    }
+    return null;
+  },
+
+  async enviarMensajeChat(conversacionId: string, texto: string) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/conversaciones/${conversacionId}/mensajes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo enviarMensajeChat:', e);
+    }
+    return null;
+  },
+
+  // ==========================================
+  // 11. DIRECTORIO LOCAL Y TABLERO DE EMERGENCIA
+  // ==========================================
+
+  async getDirectorioLocal(cuadrante?: string) {
+    try {
+      const q = cuadrante ? `?cuadrante=${encodeURIComponent(cuadrante)}` : '';
+      const res = await fetch(`${API_BASE}/emergencias/directorio-local${q}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo getDirectorioLocal:', e);
+    }
+    return null;
+  },
+
+  async getEstadoTablero(cuadrante?: string) {
+    try {
+      const q = cuadrante ? `?cuadrante=${encodeURIComponent(cuadrante)}` : '';
+      const res = await fetch(`${API_BASE}/emergencias/tablero/activo${q}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo getEstadoTablero:', e);
+    }
+    return null;
+  },
+
+  async solicitarActivacionTablero(datos: { tipoEmergencia: string; descripcion: string; cuadrante?: string }) {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/tablero/solicitar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo solicitarActivacionTablero:', e);
+    }
+    return null;
+  },
+
+  async confirmarTablero(id: string) {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/tablero/${id}/confirmar`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo confirmarTablero:', e);
+    }
+    return null;
+  },
+
+  async marcarEstoyASalvo(id: string) {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/tablero/${id}/estoy-a-salvo`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo marcarEstoyASalvo:', e);
+    }
+    return null;
+  },
+
+  // ==========================================
+  // 12. PINES DEL MAPA GEORREFERENCIADOS
+  // ==========================================
+
+  async getPinesMapa(categoria?: string, tag?: string) {
+    try {
+      const q = new URLSearchParams();
+      if (categoria) q.append('categoria', categoria);
+      if (tag) q.append('tag', tag);
+      const res = await fetch(`${API_BASE}/geo/mapa/pines?${q.toString()}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Fallo getPinesMapa:', e);
+    }
+    return null;
   }
 };
