@@ -17,7 +17,9 @@ import {
   User,
   X,
   PhoneCall,
-  ShieldAlert
+  ShieldAlert,
+  AlertTriangle,
+  ChevronRight
 } from 'lucide-react';
 import { PublicarFlowModal, type PublicacionData } from './PublicarFlowModal';
 import { BarrioMapaView } from '../components/BarrioMapaView';
@@ -150,7 +152,8 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   const [selectedFavor, setSelectedFavor] = useState<any | null>(null);
   const [modalMensajesVisible, setModalMensajesVisible] = useState(false);
   const [ocultarBarraInferior, setOcultarBarraInferior] = useState(false);
-  const [emergenciaActiva, setEmergenciaActiva] = useState(false);
+  const [emergenciaActiva, setEmergenciaActiva] = useState(true);
+  const [abrirDirectoTablero, setAbrirDirectoTablero] = useState(false);
 
   const cuadranteMostrado = userData.quadrantName || 'Urb. Los Pinos, Surco';
 
@@ -190,11 +193,18 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
         <BarrioMapaView onSelectNeighbor={(n) => setSelectedVecino(n)} />
       ) : tabActiva === 'emergencia' ? (
         <DirectorioEmergenciaView
-          onBack={() => setTabActiva('inicio')}
+          onBack={() => {
+            setAbrirDirectoTablero(false);
+            setTabActiva('inicio');
+          }}
           quadrantName={cuadranteMostrado}
           userAddress={userData.addressText}
+          initialScreen={abrirDirectoTablero ? '7_tablero' : emergenciaActiva ? '6_activa' : '1_inactiva'}
           onStepModeChange={setOcultarBarraInferior}
-          onEmergencyActiveChange={setEmergenciaActiva}
+          onEmergencyActiveChange={(isActive) => {
+            setEmergenciaActiva(isActive);
+            if (!isActive) setAbrirDirectoTablero(false);
+          }}
         />
       ) : tabActiva === 'actividad' ? (
         <MiActividadView />
@@ -266,18 +276,46 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
           </div>
 
           {/* Search Input */}
-          <div className="px-5 mb-5">
+          <div className="px-5 mb-4">
             <div className="flex items-center gap-2.5 px-4 h-12 bg-white rounded-full border border-gray-200 shadow-2xs">
               <Search className="w-4.5 h-4.5 text-gray-400 shrink-0" />
               <input 
                 type="text" 
-                placeholder="Busca gasfitero, profesor de inglés..." 
+                placeholder={
+                  categoriaActiva === 'favores'
+                    ? 'Busca escalera, ropa, paseo...'
+                    : 'Busca gasfitero, profesor de inglés...'
+                }
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
               />
             </div>
           </div>
+
+          {/* Banner Rojo: Tablero de ayuda activo (cuando hay emergencia activa) */}
+          {emergenciaActiva && (
+            <div className="px-5 mb-5">
+              <button
+                onClick={() => {
+                  setAbrirDirectoTablero(true);
+                  setTabActiva('emergencia');
+                }}
+                className="w-full bg-[#b43b1d] hover:bg-[#9e3218] text-white rounded-2xl py-3.5 px-4 flex items-center gap-3.5 text-left transition cursor-pointer shadow-xs"
+              >
+                <AlertTriangle className="w-5.5 h-5.5 text-white shrink-0" strokeWidth={2.2} />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-extrabold text-white leading-snug">
+                    Tablero de ayuda activo
+                  </h4>
+                  <p className="text-xs text-[#f9ebe6] font-medium mt-0.5 truncate">
+                    Lluvias intensas · 6 necesidades urgentes
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-white shrink-0" />
+              </button>
+            </div>
+          )}
 
           {/* Section Header: Cerca de ti */}
           <div className="px-5 mb-3 flex items-center justify-between">
