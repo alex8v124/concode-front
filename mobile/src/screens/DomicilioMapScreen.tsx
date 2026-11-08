@@ -179,7 +179,7 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
             </View>
 
             <View style={styles.lockBadge}>
-              <Text style={styles.lockBadgeText}>🔒 GPS Fijo Oficial</Text>
+              <Text style={styles.lockBadgeText}>🔒 GPS Fijado</Text>
             </View>
           </View>
 
@@ -223,7 +223,7 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
 
               {/* Etiqueta flotante */}
               <View style={styles.pinTooltip}>
-                <Text style={styles.pinTooltipText}>Tu ubicación GPS</Text>
+                <Text style={styles.pinTooltipText}>Tu casa aquí</Text>
               </View>
             </View>
 

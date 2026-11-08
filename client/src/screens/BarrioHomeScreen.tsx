@@ -19,7 +19,8 @@ import {
   PhoneCall,
   ShieldAlert
 } from 'lucide-react';
-import { PublicarFlowModal, PublicacionData } from './PublicarFlowModal';
+import { PublicarFlowModal, type PublicacionData } from './PublicarFlowModal';
+import { BarrioMapaView } from '../components/BarrioMapaView';
 
 interface BarrioHomeScreenProps {
   userData: UserFormData;
@@ -170,139 +171,146 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   return (
     <div className="flex flex-col h-full bg-[#f7f8f4] select-none overflow-y-auto relative pb-20">
       
-      {/* Top Header */}
-      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <div>
-          <span className="text-xs text-gray-500 font-medium block">Tu zona</span>
-          <button className="flex items-center gap-1.5 text-left text-[#111827] font-bold text-lg cursor-pointer">
-            <MapPin className="w-4 h-4 text-[#144e40]" strokeWidth={2.5} />
-            <span>{cuadranteMostrado}</span>
-            <ChevronDown className="w-4 h-4 text-[#144e40]" strokeWidth={2.5} />
-          </button>
-        </div>
+      {/* Vista de Tab Mapa o Tab Inicio */}
+      {tabActiva === 'mapa' ? (
+        <BarrioMapaView />
+      ) : (
+        <>
+          {/* Top Header */}
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+            <div>
+              <span className="text-xs text-gray-500 font-medium block">Tu zona</span>
+              <button className="flex items-center gap-1.5 text-left text-[#111827] font-bold text-lg cursor-pointer">
+                <MapPin className="w-4 h-4 text-[#144e40]" strokeWidth={2.5} />
+                <span>{cuadranteMostrado}</span>
+                <ChevronDown className="w-4 h-4 text-[#144e40]" strokeWidth={2.5} />
+              </button>
+            </div>
 
-        <button 
-          title="Mensajes vecinales"
-          className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center relative shadow-sm hover:opacity-95 transition cursor-pointer"
-        >
-          <MessageSquare className="w-5 h-5" strokeWidth={2.2} />
-          <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-red-600 border-2 border-white text-white text-[10px] font-bold flex items-center justify-center">
-            3
-          </span>
-        </button>
-      </div>
-
-      {/* Main Categories Row */}
-      <div className="px-5 grid grid-cols-2 gap-3 mb-4">
-        
-        {/* Servicios */}
-        <button
-          onClick={() => setCategoriaActiva('servicios')}
-          className={`p-4 rounded-2xl flex flex-col justify-between text-left transition cursor-pointer min-h-[115px] ${
-            categoriaActiva === 'servicios'
-              ? 'bg-[#144e40] text-white shadow-md'
-              : 'bg-white text-gray-800 border border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <Wrench className={`w-6 h-6 ${categoriaActiva === 'servicios' ? 'text-white' : 'text-[#144e40]'}`} strokeWidth={2.2} />
-          <div>
-            <h3 className="font-bold text-[17px]">Servicios</h3>
-            <p className={`text-xs mt-0.5 ${categoriaActiva === 'servicios' ? 'text-emerald-200' : 'text-gray-500'}`}>
-              Oficios y profesiones
-            </p>
+            <button 
+              title="Mensajes vecinales"
+              className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center relative shadow-sm hover:opacity-95 transition cursor-pointer"
+            >
+              <MessageSquare className="w-5 h-5" strokeWidth={2.2} />
+              <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-red-600 border-2 border-white text-white text-[10px] font-bold flex items-center justify-center">
+                3
+              </span>
+            </button>
           </div>
-        </button>
 
-        {/* Favores */}
-        <button
-          onClick={() => setCategoriaActiva('favores')}
-          className={`p-4 rounded-2xl flex flex-col justify-between text-left transition cursor-pointer min-h-[115px] ${
-            categoriaActiva === 'favores'
-              ? 'bg-[#144e40] text-white shadow-md'
-              : 'bg-white text-gray-800 border border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <Heart className={`w-6 h-6 ${categoriaActiva === 'favores' ? 'text-white' : 'text-gray-800'}`} strokeWidth={2.2} />
-          <div>
-            <h3 className="font-bold text-[17px]">Favores</h3>
-            <p className={`text-xs mt-0.5 ${categoriaActiva === 'favores' ? 'text-emerald-200' : 'text-gray-500'}`}>
-              Presta, dona, ofrece o pide
-            </p>
+          {/* Main Categories Row */}
+          <div className="px-5 grid grid-cols-2 gap-3 mb-4">
+            
+            {/* Servicios */}
+            <button
+              onClick={() => setCategoriaActiva('servicios')}
+              className={`p-4 rounded-2xl flex flex-col justify-between text-left transition cursor-pointer min-h-[115px] ${
+                categoriaActiva === 'servicios'
+                  ? 'bg-[#144e40] text-white shadow-md'
+                  : 'bg-white text-gray-800 border border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <Wrench className={`w-6 h-6 ${categoriaActiva === 'servicios' ? 'text-white' : 'text-[#144e40]'}`} strokeWidth={2.2} />
+              <div>
+                <h3 className="font-bold text-[17px]">Servicios</h3>
+                <p className={`text-xs mt-0.5 ${categoriaActiva === 'servicios' ? 'text-emerald-200' : 'text-gray-500'}`}>
+                  Oficios y profesiones
+                </p>
+              </div>
+            </button>
+
+            {/* Favores */}
+            <button
+              onClick={() => setCategoriaActiva('favores')}
+              className={`p-4 rounded-2xl flex flex-col justify-between text-left transition cursor-pointer min-h-[115px] ${
+                categoriaActiva === 'favores'
+                  ? 'bg-[#144e40] text-white shadow-md'
+                  : 'bg-white text-gray-800 border border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <Heart className={`w-6 h-6 ${categoriaActiva === 'favores' ? 'text-white' : 'text-gray-800'}`} strokeWidth={2.2} />
+              <div>
+                <h3 className="font-bold text-[17px]">Favores</h3>
+                <p className={`text-xs mt-0.5 ${categoriaActiva === 'favores' ? 'text-emerald-200' : 'text-gray-500'}`}>
+                  Presta, dona, ofrece o pide
+                </p>
+              </div>
+            </button>
           </div>
-        </button>
-      </div>
 
-      {/* Search Input */}
-      <div className="px-5 mb-5">
-        <div className="flex items-center gap-2.5 px-4 h-12 bg-white rounded-full border border-gray-200 shadow-2xs">
-          <Search className="w-4.5 h-4.5 text-gray-400 shrink-0" />
-          <input 
-            type="text" 
-            placeholder="Busca gasfitero, profesor de inglés..." 
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
-          />
-        </div>
-      </div>
+          {/* Search Input */}
+          <div className="px-5 mb-5">
+            <div className="flex items-center gap-2.5 px-4 h-12 bg-white rounded-full border border-gray-200 shadow-2xs">
+              <Search className="w-4.5 h-4.5 text-gray-400 shrink-0" />
+              <input 
+                type="text" 
+                placeholder="Busca gasfitero, profesor de inglés..." 
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+              />
+            </div>
+          </div>
 
-      {/* Section Header: Cerca de ti */}
-      <div className="px-5 mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 leading-tight">Cerca de ti</h2>
-          <p className="text-xs text-gray-500">Ordenado por cercanía · hasta 1 km</p>
-        </div>
+          {/* Section Header: Cerca de ti */}
+          <div className="px-5 mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 leading-tight">Cerca de ti</h2>
+              <p className="text-xs text-gray-500">Ordenado por cercanía · hasta 1 km</p>
+            </div>
 
-        <div className="flex items-center gap-1 bg-[#e6f0ed] text-[#144e40] text-xs font-bold px-2.5 py-1 rounded-full">
-          <MapPin className="w-3 h-3" strokeWidth={2.5} />
-          <span>1 km</span>
-        </div>
-      </div>
+            <div className="flex items-center gap-1 bg-[#e6f0ed] text-[#144e40] text-xs font-bold px-2.5 py-1 rounded-full">
+              <MapPin className="w-3 h-3" strokeWidth={2.5} />
+              <span>1 km</span>
+            </div>
+          </div>
 
-      {/* List of services / neighbors */}
-      <div className="px-5 flex flex-col gap-3">
-        {listaFiltrada.map((item) => (
-          <div 
-            key={item.id}
-            className="bg-white rounded-2xl p-3.5 border border-gray-150 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition cursor-pointer"
+          {/* List of services / neighbors */}
+          <div className="px-5 flex flex-col gap-3">
+            {listaFiltrada.map((item) => (
+              <div 
+                key={item.id}
+                className="bg-white rounded-2xl p-3.5 border border-gray-150 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${item.bgAvatar} ${item.colorAvatar}`}>
+                  {item.iniciales}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-bold text-gray-900 text-[15px] truncate">{item.nombre}</h4>
+                    <span className="text-xs text-gray-500 shrink-0 font-medium">{item.distancia}</span>
+                  </div>
+
+                  <p className="text-xs text-gray-600 truncate mt-0.5">
+                    {item.rubro} · <span className="text-gray-400">{item.detalle}</span>
+                  </p>
+
+                  <div className="flex items-center gap-3 mt-1.5 text-xs">
+                    <span className="flex items-center gap-1 font-semibold text-[#144e40]">
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      {item.vistosBuenos} vistos buenos
+                    </span>
+                    <span className="flex items-center gap-0.5 font-bold text-gray-700">
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      {item.calificacion.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Floating Action Button: + Publicar */}
+          <button 
+            onClick={() => setModalPublicarVisible(true)}
+            className="fixed bottom-22 right-5 bg-[#144e40] text-white font-bold text-sm px-4.5 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-[#114034] transition flex items-center gap-1.5 cursor-pointer z-30"
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${item.bgAvatar} ${item.colorAvatar}`}>
-              {item.iniciales}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="font-bold text-gray-900 text-[15px] truncate">{item.nombre}</h4>
-                <span className="text-xs text-gray-500 shrink-0 font-medium">{item.distancia}</span>
-              </div>
-
-              <p className="text-xs text-gray-600 truncate mt-0.5">
-                {item.rubro} · <span className="text-gray-400">{item.detalle}</span>
-              </p>
-
-              <div className="flex items-center gap-3 mt-1.5 text-xs">
-                <span className="flex items-center gap-1 font-semibold text-[#144e40]">
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                  {item.vistosBuenos} vistos buenos
-                </span>
-                <span className="flex items-center gap-0.5 font-bold text-gray-700">
-                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  {item.calificacion.toFixed(1)}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Floating Action Button: + Publicar */}
-      <button 
-        onClick={() => setModalPublicarVisible(true)}
-        className="fixed bottom-22 right-5 bg-[#144e40] text-white font-bold text-sm px-4.5 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-[#114034] transition flex items-center gap-1.5 cursor-pointer z-30"
-      >
-        <Plus className="w-4 h-4" strokeWidth={3} />
-        <span>Publicar</span>
-      </button>
+            <Plus className="w-4 h-4" strokeWidth={3} />
+            <span>Publicar</span>
+          </button>
+        </>
+      )}
 
       {/* Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-18 bg-white border-t border-gray-200 flex items-center justify-around px-2 z-20">

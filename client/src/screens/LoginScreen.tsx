@@ -14,7 +14,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onOpenScanner,
   onContinue,
   onRegister,
-  dniScanned
+  dniScanned: _dniScanned
 }) => {
   const [tab, setTab] = useState<'celular' | 'correo'>('celular');
   const [phoneNumber, setPhoneNumber] = useState('987 654 321');

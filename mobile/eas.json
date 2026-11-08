@@ -10,7 +10,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.1.5:3001/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://cocode-back-3qnd.onrender.com/api/v1"
       },
       "android": {
         "buildType": "apk"
@@ -18,7 +18,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.1.5:3001/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://cocode-back-3qnd.onrender.com/api/v1"
       },
       "android": {
         "buildType": "apk"
