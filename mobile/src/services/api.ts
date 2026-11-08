@@ -1,6 +1,6 @@
 // Servicio de conexión con el backend Spring Boot (cocode-back)
-// En desarrollo móvil local apunta a la IP de la máquina o al túnel HTTPS (ngrok/localtunnel)
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001/api/v1';
+// En desarrollo móvil local apunta a la IP de la máquina (192.168.1.5:3001) para pruebas en celular físico
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.5:3001/api/v1';
 
 let tokenTramiteActual: string | null = null;
 let tokenAccesoActual: string | null = null;
