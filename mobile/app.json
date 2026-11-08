@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#144e40"
+      "backgroundColor": "#ebf3ed"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,7 @@
       "package": "com.ayudartrazable.vecinal",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#144e40"
+        "backgroundColor": "#ebf3ed"
       },
       "permissions": [
         "CAMERA",
