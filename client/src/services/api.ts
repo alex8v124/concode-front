@@ -2,44 +2,76 @@ import type { UserFormData } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
-// Almacenamiento en memoria para el token de trámite de alta (X-Tramite) y la sesión JWT
+// Almacenamiento en memoria para tokens de trámite (X-Tramite) y sesión JWT (Bearer)
 let tokenTramiteActual: string | null = null;
 let tokenAccesoActual: string | null = null;
+let tokenRenovacionActual: string | null = null;
+
+export interface CuadranteInfo {
+  id?: string;
+  codigo?: string;
+  nombre?: string;
+  distrito?: string;
+}
+
+export interface AlertaActiva {
+  id: string;
+  tipo: 'PANICO' | 'SOSPECHA' | 'VEHICULO_SOSPECHOSO' | 'RUIDO_MOLESTO' | 'OTRO';
+  estado: 'ACTIVA' | 'ATENDIDA' | 'FALSA_ALARMA';
+  creadaEn: string;
+  cuadranteNombre?: string;
+  descripcion?: string;
+}
 
 export const apiService = {
-  getTramiteToken() {
+  // Manejo de tokens
+  getTramiteToken(): string | null {
     return tokenTramiteActual;
   },
-
   setTramiteToken(token: string | null) {
     tokenTramiteActual = token;
   },
-
-  getAccessToken() {
+  getAccessToken(): string | null {
     return tokenAccesoActual;
   },
-
   setAccessToken(token: string | null) {
     tokenAccesoActual = token;
   },
+  getRefreshToken(): string | null {
+    return tokenRenovacionActual;
+  },
+  setRefreshToken(token: string | null) {
+    tokenRenovacionActual = token;
+  },
 
-  // 1. Paso 1: Validar DNI en RENIEC e iniciar trámite de alta
+  // ==========================================
+  // 1. FLUJO DE ALTA / REGISTRO DE VECINO
+  // ==========================================
+
   // POST /api/v1/auth/dni
-  async scanDni(simulateError: boolean = false, dniInput?: string) {
-    const dni = dniInput || '00000000';
+  async scanDni(simulateError: boolean = false, dniInput?: string, fechaNacimiento?: string, sexo?: string) {
+    const dni = dniInput || '71234567';
+    const fecha = fechaNacimiento || '1985-07-02';
+    const s = sexo || 'M';
+
+    if (simulateError) {
+      throw new Error('No pudimos leer tu DNI. La imagen está borrosa o tiene reflejos.');
+    }
+
     try {
       const res = await fetch(`${API_BASE}/auth/dni`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dni,
-          origen: dniInput ? 'MANUAL' : 'ESCANEO'
+          origen: dniInput ? 'MANUAL' : 'ESCANEO',
+          fechaNacimiento: fecha,
+          sexo: s
         })
       });
 
       if (res.ok) {
         const data = await res.json();
-        // data: { tokenTramite, nombres, apellidos, fechaNacimiento, sexo }
         if (data.tokenTramite) {
           tokenTramiteActual = data.tokenTramite;
         }
@@ -47,52 +79,277 @@ export const apiService = {
           success: true,
           tokenTramite: data.tokenTramite,
           data: {
-            dni,
-            firstName: data.nombres || 'Ana María',
-            lastName: data.apellidos || 'Quispe Ramos',
-            age: 34,
-            gender: data.sexo === 'FEMENINO' ? 'Femenino' : 'Masculino',
-            readStatus: 'DNI leído correctamente'
+            dni: data.datos?.dni || dni,
+            firstName: data.datos?.nombres || 'Juan Carlos',
+            lastName: `${data.datos?.apellidoPaterno || 'Pérez'} ${data.datos?.apellidoMaterno || 'Soto'}`.trim(),
+            age: data.datos?.edad || 41,
+            gender: data.datos?.sexo === 'F' ? 'Femenino' : 'Masculino',
+            readStatus: 'DNI verificado con éxito'
           }
         };
       }
     } catch (err) {
-      console.warn('Backend no disponible, usando fallback simulado:', err);
+      console.warn('Backend offline o error de red, usando fallback simulado:', err);
     }
 
-    if (simulateError) {
-      throw new Error('No pudimos leer tu DNI. La imagen está borrosa o tiene reflejos.');
-    }
-
-    // Fallback garantizado de desarrollo
-    tokenTramiteActual = 'mock-tramite-token-12345';
+    // Fallback garantizado para desarrollo si el backend está reiniciando
+    tokenTramiteActual = tokenTramiteActual || 'mock-tramite-token-12345';
     return {
       success: true,
       tokenTramite: tokenTramiteActual,
       data: {
         dni,
-        firstName: 'Ana María',
-        lastName: 'Quispe Ramos',
-        age: 34,
-        gender: 'Femenino',
-        readStatus: 'DNI leído correctamente'
+        firstName: 'Juan Carlos',
+        lastName: 'Pérez Soto',
+        age: 41,
+        gender: 'Masculino',
+        readStatus: 'DNI verificado'
       }
     };
   },
 
-  // 2. Paso 2: Resolver Pin y Guardar Domicilio
-  // GET /api/v1/geo/resolver-pin?lat=...&lng=...
+  // GET /api/v1/auth/tramite
+  async consultarTramite() {
+    try {
+      const res = await fetch(`${API_BASE}/auth/tramite`, {
+        headers: { 'X-Tramite': tokenTramiteActual || '' }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error consultarTramite:', err);
+    }
+    return { estado: 'EN_CURSO', paso: 'DOMICILIO' };
+  },
+
   // POST /api/v1/auth/alta/domicilio
+  async guardarDomicilio(latitud: number, longitud: number) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/alta/domicilio`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tramite': tokenTramiteActual || ''
+        },
+        body: JSON.stringify({ latitud, longitud })
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error guardarDomicilio:', err);
+    }
+    return { exito: true, cuadrante: 'San Borja · Sector 4' };
+  },
+
+  // POST /api/v1/auth/codigo
+  async sendOtp(celular: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
+    try {
+      const res = await fetch(`${API_BASE}/auth/codigo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tramite': tokenTramiteActual || ''
+        },
+        body: JSON.stringify({ celular, canal })
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Fallo sendOtp:', err);
+    }
+    return {
+      success: true,
+      message: `Código de verificación enviado a ${celular}`,
+      devCode: '1234'
+    };
+  },
+
+  // POST /api/v1/auth/codigo/verificar
+  async verifyOtp(_phone: string, codigo: string) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/codigo/verificar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tramite': tokenTramiteActual || ''
+        },
+        body: JSON.stringify({ codigo })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { success: true, verified: true, data };
+      }
+      const errorData = await res.json();
+      throw new Error(errorData.mensaje || 'Código incorrecto');
+    } catch (err: unknown) {
+      if (codigo === '1234') return { success: true, verified: true };
+      const message = err instanceof Error ? err.message : 'Código incorrecto. Ingresa 1234.';
+      throw new Error(message);
+    }
+  },
+
+  // POST /api/v1/auth/alta
+  async registerUser(_userData?: UserFormData) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/alta`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tramite': tokenTramiteActual || ''
+        },
+        body: JSON.stringify({ aceptaTratamiento: true })
+      });
+      if (res.ok) {
+        const session = await res.json();
+        if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
+        if (session.tokenRenovacion) tokenRenovacionActual = session.tokenRenovacion;
+        return {
+          success: true,
+          session,
+          message: '¡Bienvenido al barrio! Tu identidad y domicilio están verificados.'
+        };
+      }
+    } catch (err) {
+      console.warn('Error registerUser:', err);
+    }
+    return {
+      success: true,
+      message: '¡Bienvenido al barrio! Tu identidad y domicilio están verificados.'
+    };
+  },
+
+  // ==========================================
+  // 2. FLUJO DE INGRESO (LOGIN) Y SESIONES
+  // ==========================================
+
+  // POST /api/v1/auth/ingreso
+  async loginIngreso(dni: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
+    try {
+      const res = await fetch(`${API_BASE}/auth/ingreso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dni, canal })
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error loginIngreso:', err);
+    }
+    return { tokenIngreso: 'mock-token-ingreso', devCode: '1234' };
+  },
+
+  // POST /api/v1/auth/ingreso/verificar
+  async verificarIngreso(tokenIngreso: string, codigo: string) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/ingreso/verificar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenIngreso, codigo })
+      });
+      if (res.ok) {
+        const session = await res.json();
+        if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
+        if (session.tokenRenovacion) tokenRenovacionActual = session.tokenRenovacion;
+        return session;
+      }
+    } catch (err) {
+      console.warn('Error verificarIngreso:', err);
+    }
+    return { tokenAcceso: 'mock-jwt-access', tokenRenovacion: 'mock-jwt-refresh' };
+  },
+
+  // POST /api/v1/auth/renovar
+  async renovarToken() {
+    try {
+      const res = await fetch(`${API_BASE}/auth/renovar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenRenovacion: tokenRenovacionActual || '' })
+      });
+      if (res.ok) {
+        const session = await res.json();
+        if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
+        return session;
+      }
+    } catch (err) {
+      console.warn('Error renovarToken:', err);
+    }
+    return null;
+  },
+
+  // POST /api/v1/auth/salir
+  async salirSesion() {
+    try {
+      await fetch(`${API_BASE}/auth/salir`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        }
+      });
+    } catch (err) {
+      console.warn('Error salirSesion:', err);
+    } finally {
+      tokenAccesoActual = null;
+      tokenRenovacionActual = null;
+      tokenTramiteActual = null;
+    }
+  },
+
+  // ==========================================
+  // 3. RECUPERACIÓN DE CUENTA VECINAL
+  // ==========================================
+
+  // POST /api/v1/auth/recuperacion/dni
+  async iniciarRecuperacion(dni: string, fechaNacimiento: string, sexo: string) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/recuperacion/dni`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dni, fechaNacimiento, sexo, origen: 'MANUAL' })
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error iniciarRecuperacion:', err);
+    }
+    return { tokenTramite: 'mock-recup-token' };
+  },
+
+  // POST /api/v1/auth/recuperacion/completar
+  async completarRecuperacion() {
+    try {
+      const res = await fetch(`${API_BASE}/auth/recuperacion/completar`, {
+        method: 'POST',
+        headers: { 'X-Tramite': tokenTramiteActual || '' }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error completarRecuperacion:', err);
+    }
+    return { completado: true };
+  },
+
+  // POST /api/v1/vecinos/me/recuperacion/cancelar
+  async cancelarRecuperacionSospechosa() {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/me/recuperacion/cancelar`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error cancelarRecuperacionSospechosa:', err);
+    }
+    return { cancelada: true };
+  },
+
+  // ==========================================
+  // 4. GEOLOCALIZACIÓN Y CUADRANTES
+  // ==========================================
+
+  // GET /api/v1/geo/resolver-pin?lat=...&lng=...
   async resolvePin(lat: number, lng: number) {
     try {
       const headers: Record<string, string> = {};
       if (tokenTramiteActual) headers['X-Tramite'] = tokenTramiteActual;
       if (tokenAccesoActual) headers['Authorization'] = `Bearer ${tokenAccesoActual}`;
 
-      const res = await fetch(`${API_BASE}/geo/resolver-pin?lat=${lat}&lng=${lng}`, {
-        headers
-      });
-
+      const res = await fetch(`${API_BASE}/geo/resolver-pin?lat=${lat}&lng=${lng}`, { headers });
       if (res.ok) {
         const data = await res.json();
         return {
@@ -122,131 +379,148 @@ export const apiService = {
     };
   },
 
-  async guardarDomicilio(latitud: number, longitud: number) {
+  // GET /api/v1/geo/cuadrantes/mio
+  async getMiCuadrante() {
     try {
-      const res = await fetch(`${API_BASE}/auth/alta/domicilio`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/geo/cuadrantes/mio`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error getMiCuadrante:', err);
+    }
+    return { codigo: 'CUAD-SB-04', nombre: 'San Borja · Sector 4', distrito: 'San Borja' };
+  },
+
+  // GET /api/v1/geo/cuadrantes/mio/vecinos
+  async getVecinosCuadrante() {
+    try {
+      const res = await fetch(`${API_BASE}/geo/cuadrantes/mio/vecinos`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error getVecinosCuadrante:', err);
+    }
+    return [
+      { iniciales: 'AM', nombre: 'Ana M.', calle: 'Jr. Jacarandá 300' },
+      { iniciales: 'JC', nombre: 'Juan C.', calle: 'Jr. Jacarandá 340' }
+    ];
+  },
+
+  // GET /api/v1/geo/cuadrantes/cercanos
+  async getCuadrantesCercanos() {
+    try {
+      const res = await fetch(`${API_BASE}/geo/cuadrantes/cercanos`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error getCuadrantesCercanos:', err);
+    }
+    return [];
+  },
+
+  // ==========================================
+  // 5. PERFIL DE VECINO Y DISPOSITIVO
+  // ==========================================
+
+  // GET /api/v1/vecinos/me
+  async getMiPerfil() {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/me`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error getMiPerfil:', err);
+    }
+    return null;
+  },
+
+  // PUT /api/v1/vecinos/me/domicilio
+  async actualizarDomicilio(latitud: number, longitud: number) {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/me/domicilio`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
         },
         body: JSON.stringify({ latitud, longitud })
       });
-      if (res.ok) {
-        return await res.json();
-      }
+      if (res.ok) return await res.json();
     } catch (err) {
-      console.warn('Fallo al guardar domicilio en backend:', err);
+      console.warn('Error actualizarDomicilio:', err);
     }
     return { exito: true };
   },
 
-  // 3. Paso 3: Solicitar y Verificar Código OTP
-  // POST /api/v1/auth/codigo
-  async sendOtp(celular: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
+  // PUT /api/v1/vecinos/me/dispositivo
+  async registrarDispositivo(tokenPush: string) {
     try {
-      const res = await fetch(`${API_BASE}/auth/codigo`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/vecinos/me/dispositivo`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
         },
-        body: JSON.stringify({ celular, canal })
+        body: JSON.stringify({ tokenPush })
       });
-      if (res.ok) {
-        return await res.json();
-      }
+      if (res.ok) return await res.json();
     } catch (err) {
-      console.warn('Fallo al enviar OTP en backend:', err);
+      console.warn('Error registrarDispositivo:', err);
     }
+    return { registrado: true };
+  },
 
+  // GET /api/v1/vecinos/telefonos-emergencia
+  async getTelefonosEmergencia() {
+    try {
+      const res = await fetch(`${API_BASE}/vecinos/telefonos-emergencia`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error getTelefonosEmergencia:', err);
+    }
     return {
-      success: true,
-      message: `Enviamos un código de 4 dígitos por mensaje de texto al número ${celular}.`,
-      devCode: '1234'
+      nacionales: [
+        { servicio: 'Policía Nacional', numero: '105' },
+        { servicio: 'Bomberos', numero: '116' },
+        { servicio: 'SAMU', numero: '106' }
+      ],
+      distrital: {
+        distrito: 'San Borja',
+        serenazgo: '(01) 000-0001',
+        comisaria: '(01) 000-0002',
+        bomberos: '(01) 000-0003'
+      }
     };
   },
 
-  // POST /api/v1/auth/codigo/verificar
-  async verifyOtp(_phone: string, codigo: string) {
+  // POST /api/v1/vecinos/me/reporte-datos
+  async reportarDiscrepanciaReniec(descripcion: string) {
     try {
-      const res = await fetch(`${API_BASE}/auth/codigo/verificar`, {
+      const res = await fetch(`${API_BASE}/vecinos/me/reporte-datos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
         },
-        body: JSON.stringify({ codigo })
+        body: JSON.stringify({ descripcion })
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        return { success: true, verified: true, data };
-      }
-      const errorData = await res.json();
-      throw new Error(errorData.mensaje || 'Código incorrecto');
-    } catch (err: unknown) {
-      if (codigo === '1234') {
-        return { success: true, verified: true };
-      }
-      const message = err instanceof Error ? err.message : 'Código incorrecto. Ingresa 1234.';
-      throw new Error(message);
-    }
-  },
-
-  // 4. Paso 4: Completar Registro Comunal (Alta)
-  // POST /api/v1/auth/alta
-  async registerUser(_userData?: UserFormData) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/alta`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
-        },
-        body: JSON.stringify({ aceptaTratamiento: true })
-      });
-
-      if (res.ok) {
-        const session = await res.json();
-        if (session.tokenAcceso) {
-          tokenAccesoActual = session.tokenAcceso;
-        }
-        return {
-          success: true,
-          session,
-          message: '¡Bienvenida al barrio! Tu identidad y domicilio están verificados.'
-        };
-      }
+      if (res.ok) return await res.json();
     } catch (err) {
-      console.warn('Fallo al completar alta en backend:', err);
+      console.warn('Error reportarDiscrepanciaReniec:', err);
     }
-
-    return {
-      success: true,
-      message: '¡Bienvenida al barrio! Tu identidad y domicilio están verificados.'
-    };
+    return { recibido: true };
   },
 
-  // 5. Iniciar sesión por DNI y celular
-  // POST /api/v1/auth/ingreso
-  async loginIngreso(dni: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
-    try {
-      const res = await fetch(`${API_BASE}/auth/ingreso`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dni, canal })
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (err) {
-      console.warn('Fallo login ingreso:', err);
-    }
-    return { tokenIngreso: 'mock-ingreso-token', devCode: '1234' };
-  },
+  // ==========================================
+  // 6. EMERGENCIAS Y RED VECINAL
+  // ==========================================
 
-  // 6. Botón de Pánico Vecinal
   // POST /api/v1/emergencias/panico
   async emitirPanico(latitud: number, longitud: number) {
     try {
@@ -258,12 +532,41 @@ export const apiService = {
         },
         body: JSON.stringify({ confirmado: true, latitud, longitud })
       });
-      if (res.ok) {
-        return await res.json();
-      }
+      if (res.ok) return await res.json();
     } catch (err) {
-      console.warn('Fallo emitir panico:', err);
+      console.warn('Error emitirPanico:', err);
     }
     return { creada: true, id: `alt-${Date.now()}` };
+  },
+
+  // POST /api/v1/emergencias/reportes
+  async crearReportePreventivo(tipo: string, descripcion: string) {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/reportes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenAccesoActual || ''}`
+        },
+        body: JSON.stringify({ tipo, descripcion })
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error crearReportePreventivo:', err);
+    }
+    return { creado: true };
+  },
+
+  // GET /api/v1/emergencias/activas
+  async getAlertasActivas(): Promise<AlertaActiva[]> {
+    try {
+      const res = await fetch(`${API_BASE}/emergencias/activas`, {
+        headers: { 'Authorization': `Bearer ${tokenAccesoActual || ''}` }
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Error getAlertasActivas:', err);
+    }
+    return [];
   }
 };
