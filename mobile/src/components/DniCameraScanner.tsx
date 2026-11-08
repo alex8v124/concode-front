@@ -163,10 +163,12 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       const respuesta = await mobileApiService.validarDni(mrz.dni, 'ESCANEO', mrz.fechaNacimiento, mrz.sexo);
       if (respuesta?.datos) {
         const d = respuesta.datos;
+        const nombreValido = d.nombres && d.nombres !== 'Vecino' ? d.nombres : desdeMrz.firstName;
+        const apellidoValido = d.apellidoPaterno && d.apellidoPaterno !== 'Registrado' ? `${d.apellidoPaterno ?? ''} ${d.apellidoMaterno ?? ''}`.trim() : desdeMrz.lastName;
         onScanSuccess({
           ...desdeMrz,
-          firstName: d.nombres || desdeMrz.firstName,
-          lastName: `${d.apellidoPaterno ?? ''} ${d.apellidoMaterno ?? ''}`.trim() || desdeMrz.lastName,
+          firstName: nombreValido,
+          lastName: apellidoValido,
           age: d.edad != null ? String(d.edad) : desdeMrz.age,
           verificado: !!d.verificado,
         });
