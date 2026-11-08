@@ -109,17 +109,24 @@ npm run dev
 ```
 El servidor arrancará en `http://localhost:3001` con endpoints para `/api/auth/ocr-scan`, `/api/auth/send-otp`, `/api/geo/resolve-pin` y el WebSocket de alertas.
 
-### 3. Código Nativo Móvil (Android APK / Expo)
+### 3. Código Nativo Móvil y Generación de APK (Android)
 El código de la aplicación nativa React Native con Expo se encuentra en la carpeta `/mobile`.
-Para ejecutar con Expo:
-```bash
-cd mobile
-npm start
+
+#### 📲 Descargar el Instalador APK Directo:
+Puedes instalar la aplicación de inmediato en cualquier celular Android:
+- **[Descargar instalador APK (.apk)](https://expo.dev/artifacts/eas/zJ2dVmb2fclKjzBU_iCkYT23e_9sdABMr3YhUQZsJG0.apk)**
+- **[Escanear código QR en Expo Dashboard](https://expo.dev/accounts/nt_alex8v/projects/ayudar-trazable/builds/753c55b8-211e-46dd-8e6e-7f0c503fffba)**
+
+#### 🛠️ Cómo compilar el APK desde cualquier PC:
+En la raíz del proyecto (o dentro de `/mobile`) simplemente ejecuta:
+```cmd
+generar-apk.bat
 ```
-O para compilar el APK de Android:
-```bash
-npx expo run:android
-```
+El menú interactivo te ofrece:
+1. **`[1] Iniciar sesión con tu NAVEGADOR`**: Abre tu navegador para iniciar sesión con Google/GitHub o correo en 1 solo clic (ideal para PCs nuevas).
+2. **`[2] Generar / Compilar instalador APK en la nube`**: Compila el instalador `.apk` en los servidores de EAS sin necesidad de instalar Android Studio ni configurar variables de entorno.
+3. **`[3] Iniciar sesión con Access Token de Expo`**: Si prefieres usar un token (`EXPO_TOKEN`).
+4. **`[4] Ver usuario actual (whoami)`** / **`[5] Descargar último APK compilado`**.
 
 ### 4. Base de Datos Supabase (PostgreSQL + PostGIS)
 - El esquema completo con tablas, índices espaciales, triggers y políticas RLS está en:  
