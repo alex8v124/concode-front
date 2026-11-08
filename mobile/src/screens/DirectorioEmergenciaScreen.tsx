@@ -87,6 +87,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
 }) => {
   const [pantalla, setPantalla] = useState<PantallaEmergenciaId>('1_inactiva');
   const [sinSenal, setSinSenal] = useState(false);
+  const [avisosEnCola, setAvisosEnCola] = useState<number>(0);
   const [verTodosCercanos, setVerTodosCercanos] = useState(false);
 
   // Paso 2 (Avisar)
@@ -164,6 +165,32 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
     return () => clearInterval(interval);
   }, [pantalla]);
 
+  // Detectar reconexión y enviar avisos pendientes en cola
+  useEffect(() => {
+    if (!sinSenal && avisosEnCola > 0) {
+      mobileApiService.emitirPanico(-12.0905, -76.9902).catch(() => {});
+      setAvisosEnCola(0);
+    }
+  }, [sinSenal, avisosEnCola]);
+
+  const renderBannerSinSenal = (compact = false) => {
+    if (!sinSenal) return null;
+    return (
+      <View style={[styles.darkStatusBanner, compact && { marginHorizontal: 20, marginTop: 8, marginBottom: 4 }]}>
+        <Feather name="wifi-off" size={20} color="#ffffff" style={{ marginRight: 12 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.darkStatusBannerTitle}>
+            Sin señal: tus avisos se enviarán cuando vuelva
+          </Text>
+          <Text style={styles.darkStatusBannerSub}>
+            Las llamadas siguen funcionando
+            {avisosEnCola > 0 ? ` · ${avisosEnCola} en cola` : ''}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   const handleLlamar = (numero: string, nombre: string) => {
     Linking.openURL(`tel:${numero}`).catch(() => {
       Alert.alert(`Llamar a ${nombre}`, `Marcando al ${numero}...`);
@@ -237,6 +264,8 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
               <Feather name="chevron-left" size={22} color="#1c1917" />
             </TouchableOpacity>
           </View>
+
+          {renderBannerSinSenal(true)}
 
           <ScrollView
             contentContainerStyle={styles.stepScrollContent}
@@ -326,7 +355,11 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
             <TouchableOpacity
               style={styles.primaryRedBtn}
               onPress={() => {
-                mobileApiService.emitirPanico(-12.0905, -76.9902).catch(() => {});
+                if (sinSenal) {
+                  setAvisosEnCola(c => c + 1);
+                } else {
+                  mobileApiService.emitirPanico(-12.0905, -76.9902).catch(() => {});
+                }
                 setPantalla('3_aviso_enviado');
               }}
               activeOpacity={0.85}
@@ -347,6 +380,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.stepScreenContainer}>
+          {renderBannerSinSenal(true)}
           <View style={styles.centeredStepBody}>
             <View style={styles.bigRedCircleIcon}>
               <MaterialCommunityIcons name="alarm-light-outline" size={40} color="#ffffff" />
@@ -415,6 +449,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.stepScreenContainer}>
+          {renderBannerSinSenal(true)}
           <View style={styles.centeredStepBody}>
             <View style={styles.bigRedCircleHalo}>
               <View style={styles.bigRedCircleIcon}>
@@ -535,6 +570,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
             contentContainerStyle={styles.tableroBodyScroll}
             showsVerticalScrollIndicator={false}
           >
+            {renderBannerSinSenal(false)}
             {/* Selector Se necesita / Se ofrece */}
             <View style={styles.segmentedControlWrap}>
               <TouchableOpacity
@@ -732,6 +768,8 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
             </View>
           </View>
 
+          {renderBannerSinSenal(true)}
+
           <ScrollView
             contentContainerStyle={styles.stepScrollContent}
             showsVerticalScrollIndicator={false}
@@ -807,6 +845,8 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
               <View style={[styles.wizardProgressBar, styles.wizardProgressBarActive]} />
             </View>
           </View>
+
+          {renderBannerSinSenal(true)}
 
           <ScrollView
             contentContainerStyle={styles.stepScrollContent}
@@ -907,6 +947,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.stepScreenContainer}>
+          {renderBannerSinSenal(true)}
           <View style={styles.centeredStepBody}>
             <View style={styles.bigGreenCheckCircle}>
               <Feather name="check" size={40} color="#ffffff" />
@@ -987,19 +1028,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
           </View>
 
           {/* Estado Aparte: Banner Sin Señal */}
-          {sinSenal && (
-            <View style={styles.darkStatusBanner}>
-              <Feather name="wifi-off" size={20} color="#ffffff" style={{ marginRight: 12 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.darkStatusBannerTitle}>
-                  Sin señal: tus avisos se enviarán cuando vuelva
-                </Text>
-                <Text style={styles.darkStatusBannerSub}>
-                  Las llamadas siguen funcionando
-                </Text>
-              </View>
-            </View>
-          )}
+          {renderBannerSinSenal(false)}
 
           {/* Pantalla 4: Banner "Un vecino avisó: Lluvia · Toca para confirmar" */}
           {esVecinoAviso && (

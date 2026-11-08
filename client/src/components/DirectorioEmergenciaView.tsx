@@ -101,7 +101,8 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
   onEmergencyActiveChange,
 }) => {
   const [pantalla, setPantalla] = useState<PantallaEmergenciaId>('1_inactiva');
-  const [sinSenal, setSinSenal] = useState(false);
+  const [sinSenal, setSinSenal] = useState<boolean>(() => typeof navigator !== 'undefined' && !navigator.onLine);
+  const [avisosEnCola, setAvisosEnCola] = useState<number>(0);
   const [verTodosCercanos, setVerTodosCercanos] = useState(false);
 
   // Paso 2 (Avisar)
@@ -175,6 +176,41 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
     }, 350);
     return () => clearInterval(interval);
   }, [pantalla]);
+
+  useEffect(() => {
+    const onOffline = () => setSinSenal(true);
+    const onOnline = () => setSinSenal(false);
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('online', onOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sinSenal && avisosEnCola > 0) {
+      setAvisosEnCola(0);
+    }
+  }, [sinSenal, avisosEnCola]);
+
+  const renderBannerSinSenal = (className = '') => {
+    if (!sinSenal) return null;
+    return (
+      <div className={`bg-[#1c1917] rounded-2xl p-3.5 flex items-center gap-3 text-white ${className}`}>
+        <WifiOff className="w-5 h-5 shrink-0" />
+        <div>
+          <h4 className="text-xs font-bold leading-snug">
+            Sin señal: tus avisos se enviarán cuando vuelva
+          </h4>
+          <p className="text-[11px] text-stone-300">
+            Las llamadas siguen funcionando
+            {avisosEnCola > 0 ? ` · ${avisosEnCola} en cola` : ''}
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   const handleLlamar = (numero: string, nombre: string) => {
     window.location.href = `tel:${numero}`;
@@ -271,10 +307,12 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
         <div>
           <button
             onClick={() => setPantalla('1_inactiva')}
-            className="w-10 h-10 rounded-full bg-white border border-[#ebe6dc] flex items-center justify-center text-[#1c1917] mb-4 cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white border border-[#ebe6dc] flex items-center justify-center text-[#1c1917] mb-3 cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
+
+          {renderBannerSinSenal('mb-3')}
 
           <h2 className="text-2xl font-extrabold text-[#1c1917] mb-4">¿Qué está pasando?</h2>
 
@@ -345,7 +383,10 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
           </div>
 
           <button
-            onClick={() => setPantalla('3_aviso_enviado')}
+            onClick={() => {
+              if (sinSenal) setAvisosEnCola(c => c + 1);
+              setPantalla('3_aviso_enviado');
+            }}
             className="w-full py-4 rounded-2xl bg-[#b43b1d] hover:bg-[#9e3218] text-white font-bold text-sm flex items-center justify-center gap-2 transition cursor-pointer"
           >
             <Megaphone className="w-4.5 h-4.5" />
@@ -362,6 +403,7 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
   if (pantalla === '3_aviso_enviado') {
     return (
       <div className="flex flex-col justify-between h-full bg-[#f3efe6] p-5 select-none">
+        {renderBannerSinSenal('mb-2')}
         <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
           <div className="w-20 h-20 rounded-full bg-[#b43b1d] text-white flex items-center justify-center mb-4">
             <Siren className="w-10 h-10" />
@@ -415,6 +457,7 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
   if (pantalla === '5_confirmar') {
     return (
       <div className="flex flex-col justify-between h-full bg-[#f3efe6] p-5 select-none">
+        {renderBannerSinSenal('mb-2')}
         <div className="flex-1 flex flex-col items-center justify-center text-center px-3">
           <div className="w-26 h-26 rounded-full bg-[#f5dad2] flex items-center justify-center mb-4">
             <div className="w-20 h-20 rounded-full bg-[#b43b1d] text-white flex items-center justify-center">
@@ -515,6 +558,7 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
 
         {/* Contenido del Tablero */}
         <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28">
+          {renderBannerSinSenal('mb-3.5')}
           <div className="grid grid-cols-2 bg-[#e6e1d6] p-1 rounded-2xl mb-3.5">
             <button
               onClick={() => setTabTablero('necesita')}
@@ -873,17 +917,7 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
         </div>
 
         {/* Estado Sin Señal */}
-        {sinSenal && (
-          <div className="bg-[#1c1917] rounded-2xl p-3.5 flex items-center gap-3 text-white">
-            <WifiOff className="w-5 h-5 shrink-0" />
-            <div>
-              <h4 className="text-xs font-bold leading-snug">
-                Sin señal: tus avisos se enviarán cuando vuelva
-              </h4>
-              <p className="text-[11px] text-stone-300">Las llamadas siguen funcionando</p>
-            </div>
-          </div>
-        )}
+        {renderBannerSinSenal()}
 
         {/* Pantalla 4: Otro vecino avisó */}
         {esVecinoAviso && (
