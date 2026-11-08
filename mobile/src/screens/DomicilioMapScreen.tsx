@@ -8,7 +8,8 @@ import {
   ActivityIndicator, 
   Alert,
   Dimensions,
-  Platform
+  Image,
+  LayoutChangeEvent
 } from 'react-native';
 import * as Location from 'expo-location';
 import { mobileApiService } from '../services/api';
@@ -18,7 +19,8 @@ interface Props {
   onSaveAddress: (address: string) => void;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const TILE_SIZE = 256;
+const DEFAULT_ZOOM = 17;
 
 export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) => {
   const [address, setAddress] = useState('Jr. Jacarandá 342, San Borja');
@@ -26,6 +28,11 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
   const [coordinates, setCoordinates] = useState({ lat: -12.0905, lng: -76.9902 });
   const [isLocating, setIsLocating] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Controles de visualización tipo Google Maps
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [mapType, setMapType] = useState<'m' | 'y'>('m'); // 'm' = estándar, 'y' = satélite híbrido
+  const [viewerSize, setViewerSize] = useState({ width: 340, height: 280 });
 
   // 1. Obtención Automática de la Ubicación GPS Actual al entrar a la pantalla
   useEffect(() => {
@@ -65,9 +72,9 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
 
           if (reverseList && reverseList.length > 0) {
             const item = reverseList[0];
-            const streetName = item.street || item.name || 'Jr. Jacarandá';
-            const streetNum = item.streetNumber ? ` ${item.streetNumber}` : ' 342';
-            const district = item.district || item.subregion || item.city || 'San Borja';
+            const streetName = item.street || item.name || 'Calle detectada';
+            const streetNum = item.streetNumber ? ` ${item.streetNumber}` : '';
+            const district = item.district || item.subregion || item.city || 'Lima';
             setAddress(`${streetName}${streetNum}, ${district}`);
           }
         } catch {}
@@ -104,17 +111,50 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
     }
   };
 
-  // 2. Acción: Aceptar usar esta ubicación (Llamar API y continuar)
   const handleAceptarUbicacion = async () => {
     setIsSaving(true);
     try {
-      // Registrar en el backend Spring Boot (POST /api/v1/auth/alta/domicilio)
       await mobileApiService.guardarDomicilio(coordinates.lat, coordinates.lng);
     } catch (e) {
       console.warn('Error al guardar domicilio en backend:', e);
     } finally {
       setIsSaving(false);
       onSaveAddress(address);
+    }
+  };
+
+  // Cálculo de teselas Web Mercator para centrar Google Maps exactamente en las coordenadas GPS
+  const n = Math.pow(2, zoom);
+  const exactTileX = ((coordinates.lng + 180) / 360) * n;
+  const latRad = (coordinates.lat * Math.PI) / 180;
+  const exactTileY = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+
+  const centerTileX = Math.floor(exactTileX);
+  const centerTileY = Math.floor(exactTileY);
+
+  const pixelOffsetX = (exactTileX - centerTileX) * TILE_SIZE;
+  const pixelOffsetY = (exactTileY - centerTileY) * TILE_SIZE;
+
+  // Cuadrícula 3x3 de teselas alrededor del centro
+  const deltaIndices = [-1, 0, 1];
+  const gridTiles = deltaIndices.flatMap(dy => 
+    deltaIndices.map(dx => ({
+      x: centerTileX + dx,
+      y: centerTileY + dy,
+      col: dx + 1, // 0, 1, 2
+      row: dy + 1, // 0, 1, 2
+      key: `${zoom}_${centerTileX + dx}_${centerTileY + dy}_${mapType}`
+    }))
+  );
+
+  // Posición del contenedor de 768x768 px para alinear el punto GPS con el centro del visor
+  const containerLeft = (viewerSize.width / 2) - (TILE_SIZE + pixelOffsetX);
+  const containerTop = (viewerSize.height / 2) - (TILE_SIZE + pixelOffsetY);
+
+  const onViewerLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setViewerSize({ width, height });
     }
   };
 
@@ -129,71 +169,111 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
         <Text style={styles.title}>Ubica tu casa</Text>
         <Text style={styles.subtitle}>Solo vecinos verificados de tu cuadrante verán tu zona.</Text>
 
-        {/* Mapa Estilo Google Maps con BLOQUEO TOTAL (El usuario no puede mover el mapa) */}
+        {/* Tarjeta del Mapa Google Maps */}
         <View style={styles.mapCard}>
           
-          {/* Cabecera de Seguridad */}
+          {/* Barra Superior con Cuadrante y Estado GPS */}
           <View style={styles.mapHeader}>
             <View style={styles.quadrantBadge}>
               <Text style={styles.quadrantBadgeText}>🛡️ {quadrantName}</Text>
             </View>
 
             <View style={styles.lockBadge}>
-              <Text style={styles.lockBadgeText}>🔒 GPS Fijado</Text>
+              <Text style={styles.lockBadgeText}>🔒 GPS Fijo Oficial</Text>
             </View>
           </View>
 
-          {/* Visualizador de Mapa Estilo Google Maps (PointerEvents = "none" para bloqueo) */}
-          <View style={styles.googleMapViewer} pointerEvents="none">
+          {/* Visor interactivo con Tiles Reales de Google Maps */}
+          <View style={styles.mapViewerContainer} onLayout={onViewerLayout}>
             
-            {/* Calles y Manzanas vectoriales estilo Google Maps */}
-            <View style={styles.mapBlockGrid}>
-              <View style={[styles.cityBlock, { top: 15, left: 15, width: 85, height: 60 }]} />
-              <View style={[styles.cityBlock, { top: 15, left: 115, width: 110, height: 60 }]} />
-              <View style={[styles.cityPark, { top: 15, right: 15, width: 70, height: 60 }]}>
-                <Text style={styles.parkLabel}>Parque</Text>
-              </View>
-
-              {/* Calles */}
-              <View style={[styles.roadHorizontal, { top: 85 }]} />
-              <Text style={[styles.roadLabel, { top: 88, left: 30 }]}>Av. San Borja Norte</Text>
-
-              <View style={[styles.cityBlock, { top: 105, left: 15, width: 95, height: 75 }]} />
-              <View style={[styles.cityBlock, { top: 105, left: 125, width: 90, height: 75 }]} />
-              <View style={[styles.cityBlock, { top: 105, right: 15, width: 80, height: 75 }]} />
-
-              <View style={[styles.roadHorizontal, { top: 190 }]} />
-              <Text style={[styles.roadLabel, { top: 193, left: 50 }]}>Jr. Jacarandá</Text>
-
-              <View style={[styles.cityBlock, { top: 210, left: 25, width: 130, height: 45 }]} />
-              <View style={[styles.cityBlock, { top: 210, right: 25, width: 140, height: 45 }]} />
-
-              <View style={[styles.roadVertical, { left: 105 }]} />
-              <View style={[styles.roadVertical, { right: 110 }]} />
+            {/* Contenedor de Teselas Reales de Google Maps */}
+            <View 
+              style={[
+                styles.tilesCanvas, 
+                { left: containerLeft, top: containerTop }
+              ]} 
+              pointerEvents="none"
+            >
+              {gridTiles.map(tile => (
+                <Image
+                  key={tile.key}
+                  source={{ 
+                    uri: `https://mt1.google.com/vt/lyrs=${mapType}&hl=es&x=${tile.x}&y=${tile.y}&z=${zoom}` 
+                  }}
+                  style={[
+                    styles.mapTile,
+                    { left: tile.col * TILE_SIZE, top: tile.row * TILE_SIZE }
+                  ]}
+                  resizeMode="cover"
+                />
+              ))}
             </View>
 
-            {/* Pin GPS Pulsante estilo Google Maps centrado en la ubicación exacta */}
-            <View style={styles.googleGpsPin}>
-              <View style={styles.googleHaloRing} />
-              <View style={styles.googleBlueCore}>
-                <View style={styles.googleWhiteDot} />
+            {/* Pin de Google Maps centrado en el punto exacto */}
+            <View style={styles.pinAnchor} pointerEvents="none">
+              {/* Halo azul de precisión GPS */}
+              <View style={styles.gpsPulseRing} />
+              <View style={styles.gpsPulseCore} />
+
+              {/* Pin Rojo Oficial de Google Maps */}
+              <View style={styles.googlePinTeardrop}>
+                <View style={styles.googlePinInnerDot} />
               </View>
-              <View style={styles.googlePinCallout}>
-                <Text style={styles.googlePinCalloutText}>Tu casa aquí</Text>
+              <View style={styles.googlePinShadow} />
+
+              {/* Etiqueta flotante */}
+              <View style={styles.pinTooltip}>
+                <Text style={styles.pinTooltipText}>Tu ubicación GPS</Text>
               </View>
             </View>
 
-            {/* Marca de agua Google */}
-            <View style={styles.googleWatermark}>
-              <Text style={styles.googleWatermarkText}>Google Maps</Text>
+            {/* Botón de alternar tipo de mapa (Estándar / Satélite) */}
+            <TouchableOpacity 
+              style={styles.mapTypeToggle}
+              onPress={() => setMapType(m => m === 'm' ? 'y' : 'm')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.mapTypeToggleIcon}>{mapType === 'm' ? '🛰️' : '🗺️'}</Text>
+              <Text style={styles.mapTypeToggleText}>
+                {mapType === 'm' ? 'Satélite' : 'Mapa'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Controles de Zoom (+ / -) */}
+            <View style={styles.zoomControls}>
+              <TouchableOpacity 
+                style={styles.zoomBtn}
+                onPress={() => setZoom(z => Math.min(19, z + 1))}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.zoomBtnText}>+</Text>
+              </TouchableOpacity>
+              <View style={styles.zoomDivider} />
+              <TouchableOpacity 
+                style={styles.zoomBtn}
+                onPress={() => setZoom(z => Math.max(15, z - 1))}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.zoomBtnText}>−</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Overlay de carga satelital */}
+            {/* Logo oficial de Google en la esquina inferior izquierda */}
+            <View style={styles.googleLogoContainer} pointerEvents="none">
+              <Text style={styles.googleLogoG}>G</Text>
+              <Text style={styles.googleLogoO1}>o</Text>
+              <Text style={styles.googleLogoO2}>o</Text>
+              <Text style={styles.googleLogoG2}>g</Text>
+              <Text style={styles.googleLogoL}>l</Text>
+              <Text style={styles.googleLogoE}>e</Text>
+            </View>
+
+            {/* Pantalla de carga mientras se sincroniza el GPS */}
             {isLocating && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#144e40" />
-                <Text style={styles.loadingText}>Obteniendo GPS satelital exacto...</Text>
-                <Text style={styles.loadingSubtext}>Fijando ubicación de tu cuadrante</Text>
+                <Text style={styles.loadingText}>Obteniendo satélites GPS...</Text>
+                <Text style={styles.loadingSubtext}>Fijando ubicación de tu casa</Text>
               </View>
             )}
           </View>
@@ -208,12 +288,15 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
                 <Text style={styles.addressLabel}>DIRECCIÓN GPS DETECTADA</Text>
                 <Text style={styles.addressValue} numberOfLines={1}>{address}</Text>
                 <Text style={styles.quadrantInfo}>Cuadrante vecinal: {quadrantName}</Text>
+                <Text style={styles.coordsInfo}>
+                  GPS: {coordinates.lat.toFixed(5)}°, {coordinates.lng.toFixed(5)}° · Zoom {zoom}x
+                </Text>
               </View>
             </View>
 
             <View style={styles.securityWarning}>
               <Text style={styles.securityWarningText}>
-                🛡️ La ubicación fue fijada automáticamente por GPS. No se permite mover el pin para evitar suplantaciones de cuadrante.
+                🛡️ La ubicación fue fijada automáticamente por el GPS satelital de tu celular. El mapa está bloqueado para evitar suplantaciones de cuadrante.
               </Text>
             </View>
           </View>
@@ -221,7 +304,7 @@ export const DomicilioMapScreen: React.FC<Props> = ({ onBack, onSaveAddress }) =
         </View>
       </View>
 
-      {/* Botones de Acción: Aceptar Usar esta Ubicación o Cancelar Captura */}
+      {/* Botones de Acción */}
       <View style={styles.footer}>
         <TouchableOpacity 
           style={[styles.acceptBtn, (isLocating || isSaving) && styles.btnDisabled]} 
@@ -290,9 +373,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
     marginBottom: 16,
   },
   mapHeader: {
@@ -301,9 +384,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f0f0f0',
   },
   quadrantBadge: {
     backgroundColor: '#e6f0ed',
@@ -317,140 +400,183 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   lockBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 8,
+    backgroundColor: '#1f2937',
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   lockBadgeText: {
-    color: '#f2ab27',
-    fontSize: 10,
+    color: '#ffffff',
+    fontSize: 11,
     fontWeight: '700',
   },
-  googleMapViewer: {
-    height: 250,
-    backgroundColor: '#e5e3df', // Color de fondo típico de Google Maps
+  mapViewerContainer: {
+    width: '100%',
+    height: 280,
+    backgroundColor: '#e5e3df',
     position: 'relative',
     overflow: 'hidden',
   },
-  mapBlockGrid: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  cityBlock: {
+  tilesCanvas: {
+    width: TILE_SIZE * 3,
+    height: TILE_SIZE * 3,
     position: 'absolute',
-    backgroundColor: '#f5f3f0', // Manzanas residenciales en Google Maps
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e0dedb',
   },
-  cityPark: {
+  mapTile: {
+    width: TILE_SIZE,
+    height: TILE_SIZE,
     position: 'absolute',
-    backgroundColor: '#c8e6c9', // Color de parques Google Maps
-    borderRadius: 6,
-    justifyContent: 'center',
+    backgroundColor: '#e5e3df',
+  },
+  pinAnchor: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#a5d6a7',
+    justifyContent: 'center',
   },
-  parkLabel: {
-    fontSize: 9,
-    color: '#2e7d32',
-    fontWeight: '700',
-  },
-  roadHorizontal: {
+  gpsPulseRing: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 16,
-    backgroundColor: '#ffffff', // Calles blancas de Google Maps
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#d6d4d0',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: 'rgba(66, 133, 244, 0.22)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(66, 133, 244, 0.55)',
   },
-  roadVertical: {
+  gpsPulseCore: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
     width: 14,
-    backgroundColor: '#ffffff',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: '#d6d4d0',
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4285F4',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
-  roadLabel: {
-    position: 'absolute',
-    fontSize: 9,
-    color: '#70757a',
-    fontWeight: '600',
-  },
-  googleGpsPin: {
-    position: 'absolute',
-    top: '48%',
-    left: '46%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleHaloRing: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(66, 133, 244, 0.25)',
-    position: 'absolute',
-  },
-  googleBlueCore: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#1a73e8',
+  googlePinTeardrop: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EA4335',
     borderWidth: 2,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: -22 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  googlePinInnerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#7C0A02',
+  },
+  googlePinShadow: {
+    position: 'absolute',
+    width: 16,
+    height: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    bottom: -3,
+  },
+  pinTooltip: {
+    position: 'absolute',
+    bottom: 36,
+    backgroundColor: '#1f2937',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 4,
   },
-  googleWhiteDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ffffff',
-  },
-  googlePinCallout: {
-    position: 'absolute',
-    bottom: -18,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  googlePinCalloutText: {
+  pinTooltipText: {
     color: '#ffffff',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
   },
-  googleWatermark: {
+  mapTypeToggle: {
     position: 'absolute',
-    bottom: 6,
+    top: 10,
+    right: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  mapTypeToggleIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  mapTypeToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  zoomControls: {
+    position: 'absolute',
+    right: 10,
+    bottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  zoomBtn: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+    lineHeight: 20,
+  },
+  zoomDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  googleLogoContainer: {
+    position: 'absolute',
     left: 8,
+    bottom: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.85)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  googleWatermarkText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#5f6368',
-  },
+  googleLogoG: { fontSize: 13, fontWeight: '700', color: '#4285F4' },
+  googleLogoO1: { fontSize: 13, fontWeight: '700', color: '#EA4335' },
+  googleLogoO2: { fontSize: 13, fontWeight: '700', color: '#FBBC05' },
+  googleLogoG2: { fontSize: 13, fontWeight: '700', color: '#4285F4' },
+  googleLogoL: { fontSize: 13, fontWeight: '700', color: '#34A853' },
+  googleLogoE: { fontSize: 13, fontWeight: '700', color: '#EA4335' },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center',
   },
   loadingText: {
     marginTop: 10,
@@ -464,24 +590,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   addressCard: {
-    padding: 14,
+    padding: 16,
     backgroundColor: '#ffffff',
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginBottom: 12,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#e6f0ed',
-    justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#f3f4f6',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   iconPin: {
-    fontSize: 16,
+    fontSize: 20,
   },
   addressTextContainer: {
     flex: 1,
@@ -489,65 +616,73 @@ const styles = StyleSheet.create({
   addressLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#144e40',
+    color: '#059669',
     letterSpacing: 0.5,
+    marginBottom: 2,
   },
   addressValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#1f2937',
-    marginTop: 1,
+    color: '#111827',
   },
   quadrantInfo: {
-    fontSize: 11,
-    color: '#6b7280',
-    marginTop: 1,
+    fontSize: 12,
+    color: '#4b5563',
+    marginTop: 2,
   },
-  securityWarning: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-  },
-  securityWarningText: {
+  coordsInfo: {
     fontSize: 10,
     color: '#9ca3af',
-    lineHeight: 14,
+    marginTop: 2,
+  },
+  securityWarning: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  securityWarningText: {
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: 16,
   },
   footer: {
-    gap: 10,
+    gap: 12,
     marginTop: 8,
   },
   acceptBtn: {
     backgroundColor: '#144e40',
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#144e40',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 3,
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   acceptBtnText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
   cancelBtn: {
     backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   cancelBtnText: {
-    color: '#4b5563',
-    fontSize: 13,
+    color: '#374151',
+    fontSize: 14,
     fontWeight: '600',
-  },
-  btnDisabled: {
-    opacity: 0.65,
   },
 });
