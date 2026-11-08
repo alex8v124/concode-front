@@ -1,19 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
+  ActivityIndicator,
   Animated,
   Dimensions,
-  ActivityIndicator,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
   Vibration,
+  View,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
-import { leerMrz, mismaLectura, formatearNombre, type DatosMrz } from '../utils/mrz';
-import { mobileApiService, ErrorApi } from '../services/api';
+import { DatosMrz, formatearNombre, leerMrz } from '../utils/mrz';
+import { ErrorApi, mobileApiService } from '../services/api';
 
 export interface DniEscaneado {
   dni: string;
@@ -36,12 +36,11 @@ interface DniCameraScannerProps {
   validarConBackend?: boolean;
 }
 
-type Estado = 'buscando' | 'mrz_visible' | 'confirmando' | 'validando' | 'error';
+type Estado = 'buscando' | 'confirmando' | 'validando' | 'error';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH - 40, 340);
 const CARD_HEIGHT = Math.round(CARD_WIDTH / 1.586);
-const INTENTOS_PARA_AYUDA = 18;
 
 export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
   visible,
@@ -53,15 +52,12 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-  const activoRef = useRef(false);
-  const previaRef = useRef<DatosMrz | null>(null);
 
   const [camaraLista, setCamaraLista] = useState(false);
   const [torch, setTorch] = useState(false);
+  const [capturando, setCapturando] = useState(false);
   const [estado, setEstado] = useState<Estado>('buscando');
-  const [intentos, setIntentos] = useState(0);
   const [mensajeError, setMensajeError] = useState('');
-  const [sesion, setSesion] = useState(0);
 
   const laser = useRef(new Animated.Value(0)).current;
 
@@ -80,52 +76,47 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
   useEffect(() => {
     if (!visible) {
       setCamaraLista(false);
+      setCapturando(false);
       setEstado('buscando');
-      setIntentos(0);
       setMensajeError('');
-      previaRef.current = null;
     }
   }, [visible]);
 
-  // Bucle de lectura: foto -> OCR -> MRZ. Dispara solo con una lectura consistente.
-  useEffect(() => {
-    if (!visible || !permission?.granted || !camaraLista) return;
-    activoRef.current = true;
-    let timer: ReturnType<typeof setTimeout>;
+  // Captura bajo demanda SIN flasheo continuo
+  // Se toma una sola foto nítida al pulsar el botón, protegiendo a usuarios con sensibilidad visual
+  const ejecutarCaptura = async () => {
+    if (!cameraRef.current || capturando || estado === 'validando') return;
+    setCapturando(true);
+    setEstado('confirmando');
+    setMensajeError('');
 
-    const ciclo = async () => {
-      if (!activoRef.current) return;
-      try {
-        const foto = await cameraRef.current?.takePictureAsync({ quality: 0.7, skipProcessing: true });
-        if (foto?.uri && activoRef.current) {
-          const resultado = await TextRecognition.recognize(foto.uri);
-          setIntentos(n => n + 1);
-          const datos = leerMrz(resultado.text);
+    try {
+      const foto = await cameraRef.current.takePictureAsync({
+        quality: 0.85,
+        skipProcessing: true,
+      });
 
-          if (datos && (datos.confiable || mismaLectura(datos, previaRef.current))) {
-            activoRef.current = false;
-            await finalizar(datos);
-            return;
-          }
-          if (datos) {
-            previaRef.current = datos;
-            setEstado('confirmando');
-          } else {
-            setEstado(/<{4,}/.test(resultado.text) ? 'mrz_visible' : 'buscando');
-          }
+      if (foto?.uri) {
+        const resultado = await TextRecognition.recognize(foto.uri);
+        const datos = leerMrz(resultado.text);
+
+        if (datos && datos.dni) {
+          await finalizar(datos);
+          return;
         }
-      } catch (e) {
-        console.warn('Error leyendo fotograma:', e);
-      }
-      if (activoRef.current) timer = setTimeout(ciclo, 250);
-    };
 
-    timer = setTimeout(ciclo, 500);
-    return () => {
-      activoRef.current = false;
-      clearTimeout(timer);
-    };
-  }, [visible, permission?.granted, camaraLista, sesion]);
+        // Si no se pudo leer la zona MRZ
+        setMensajeError('No se leyeron las 3 líneas con «<<<». Asegúrate de enfocar bien el reverso con buena luz y sin reflejos.');
+        setEstado('error');
+      }
+    } catch (e) {
+      console.warn('Error en captura de DNI:', e);
+      setMensajeError('Ocurrió un error al tomar la captura. Intenta nuevamente.');
+      setEstado('error');
+    } finally {
+      setCapturando(false);
+    }
+  };
 
   const finalizar = async (mrz: DatosMrz) => {
     setEstado('validando');
@@ -144,7 +135,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
     // Consulta en tiempo real con la API de RENIEC a través del backend
     try {
       const datosReniec = await mobileApiService.consultarReniec(mrz.dni);
-      if (datosReniec?.nombres) {
+      if (datosReniec?.nombres && datosReniec.nombres !== 'Vecino') {
         desdeMrz.firstName = formatearNombre(datosReniec.nombres);
         desdeMrz.lastName = formatearNombre(`${datosReniec.apellidoPaterno ?? ''} ${datosReniec.apellidoMaterno ?? ''}`.trim());
         desdeMrz.verificado = true;
@@ -164,7 +155,9 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       if (respuesta?.datos) {
         const d = respuesta.datos;
         const nombreValido = d.nombres && d.nombres !== 'Vecino' ? d.nombres : desdeMrz.firstName;
-        const apellidoValido = d.apellidoPaterno && d.apellidoPaterno !== 'Registrado' ? `${d.apellidoPaterno ?? ''} ${d.apellidoMaterno ?? ''}`.trim() : desdeMrz.lastName;
+        const apellidoValido = d.apellidoPaterno && d.apellidoPaterno !== 'Registrado'
+          ? `${d.apellidoPaterno ?? ''} ${d.apellidoMaterno ?? ''}`.trim()
+          : desdeMrz.lastName;
         onScanSuccess({
           ...desdeMrz,
           firstName: nombreValido,
@@ -173,12 +166,11 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
           verificado: !!d.verificado,
         });
       } else {
-        // Sin conexion con el backend: se usan los datos impresos en el DNI
         onScanSuccess(desdeMrz);
       }
       onClose();
     } catch (e) {
-      console.warn('Error en validacion con backend, usando datos escaneados:', e);
+      console.warn('Error en validación con backend, usando datos escaneados:', e);
       if (desdeMrz.dni && desdeMrz.dni.length === 8) {
         onScanSuccess(desdeMrz);
         onClose();
@@ -190,22 +182,18 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
   };
 
   const reintentar = () => {
-    previaRef.current = null;
     setMensajeError('');
-    setIntentos(0);
     setEstado('buscando');
-    setSesion(s => s + 1);
   };
 
   const translateY = laser.interpolate({ inputRange: [0, 1], outputRange: [8, CARD_HEIGHT - 10] });
   const enfocado = estado === 'confirmando' || estado === 'validando';
 
   const textoEstado: Record<Estado, string> = {
-    buscando: 'Buscando la zona de lectura del DNI...',
-    mrz_visible: 'Veo el DNI. Acércalo un poco y evita reflejos',
-    confirmando: 'DNI detectado. Mantén el teléfono quieto...',
-    validando: validarConBackend ? 'DNI leído. Validando con RENIEC...' : 'DNI leído correctamente',
-    error: 'No pudimos validar este DNI',
+    buscando: 'Apunta al reverso del DNI y presiona Escanear',
+    confirmando: 'Analizando caracteres del DNI...',
+    validando: validarConBackend ? 'Validando con RENIEC...' : 'DNI leído correctamente',
+    error: 'No se pudo leer el DNI',
   };
 
   return (
@@ -218,8 +206,8 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
             <Text style={styles.permissionText}>
               La usamos solo para leer tu DNI. La lectura se hace en tu teléfono y no guardamos fotos.
             </Text>
-            <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission} activeOpacity={0.85}>
-              <Text style={styles.permissionBtnText}>Dar permiso a la cámara</Text>
+            <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
+              <Text style={styles.permissionBtnText}>Permitir cámara</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.linkBtn} onPress={onClose}>
               <Text style={styles.linkBtnText}>Cancelar</Text>
@@ -258,7 +246,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
                   <View style={[styles.corner, styles.cBL, enfocado && styles.cornerOk]} />
                   <View style={[styles.corner, styles.cBR, enfocado && styles.cornerOk]} />
 
-                  {/* Franja donde debe quedar la MRZ (las 3 lineas con <<<) */}
+                  {/* Franja donde debe quedar la MRZ (las 3 líneas con <<<) */}
                   <View style={[styles.mrzBand, enfocado && styles.mrzBandOk]}>
                     <Text style={styles.mrzHint} numberOfLines={1}>I{'<'}PER········{'<<<<<<<<<<<<'}</Text>
                     <Text style={styles.mrzHint} numberOfLines={1}>······M······PER{'<<<<<<<<<<'}</Text>
@@ -269,10 +257,10 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
                     <Animated.View style={[styles.laser, enfocado && styles.laserOk, { transform: [{ translateY }] }]} />
                   )}
 
-                  {estado === 'validando' && (
+                  {(estado === 'validando' || capturando) && (
                     <View style={styles.processing}>
                       <ActivityIndicator size="large" color="#10b981" />
-                      <Text style={styles.processingText}>{textoEstado.validando}</Text>
+                      <Text style={styles.processingText}>{textoEstado[estado]}</Text>
                     </View>
                   )}
                 </View>
@@ -282,7 +270,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
                 </View>
 
                 {estado !== 'error' && (
-                  <Text style={styles.subHint}>Alinea las 3 líneas con «&lt;&lt;&lt;» dentro de la franja verde</Text>
+                  <Text style={styles.subHint}>Alinea las 3 líneas con «&lt;&lt;&lt;» dentro del marco verde</Text>
                 )}
               </View>
 
@@ -291,29 +279,43 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
                   <>
                     <Text style={styles.errorText}>{mensajeError}</Text>
                     <TouchableOpacity style={styles.primaryBtn} onPress={reintentar}>
-                      <Text style={styles.primaryBtnText}>Volver a escanear</Text>
+                      <Text style={styles.primaryBtnText}>Reintentar captura</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.linkBtn} onPress={onClose}>
-                      <Text style={styles.linkBtnText}>Cerrar</Text>
+                    <TouchableOpacity
+                      style={styles.linkBtn}
+                      onPress={() => {
+                        onClose();
+                        onScanError();
+                      }}
+                    >
+                      <Text style={styles.linkBtnText}>Ingresar datos manualmente</Text>
                     </TouchableOpacity>
                   </>
                 ) : (
                   <>
-                    <View style={styles.autoBadge}>
-                      <View style={styles.dot} />
-                      <Text style={styles.autoText}>Captura automática · {intentos} lecturas</Text>
-                    </View>
-                    {intentos >= INTENTOS_PARA_AYUDA && (
-                      <TouchableOpacity
-                        style={styles.linkBtn}
-                        onPress={() => {
-                          onClose();
-                          onScanError();
-                        }}
-                      >
-                        <Text style={styles.linkBtnText}>¿No logras escanearlo? Ingresa tus datos</Text>
-                      </TouchableOpacity>
-                    )}
+                    {/* Botón táctil ergonómico para disparar la captura sin parpadeos */}
+                    <TouchableOpacity
+                      style={[styles.captureBtn, (!camaraLista || capturando) && styles.captureBtnDisabled]}
+                      onPress={ejecutarCaptura}
+                      disabled={!camaraLista || capturando || estado === 'validando'}
+                      activeOpacity={0.8}
+                    >
+                      {capturando ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.captureBtnText}>📸 Escanear DNI</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.linkBtn}
+                      onPress={() => {
+                        onClose();
+                        onScanError();
+                      }}
+                    >
+                      <Text style={styles.linkBtnText}>¿Prefieres no usar la cámara? Ingresar a mano</Text>
+                    </TouchableOpacity>
                   </>
                 )}
               </View>
@@ -374,13 +376,32 @@ const styles = StyleSheet.create({
   statusPillError: { borderColor: '#ef4444', backgroundColor: 'rgba(127,29,29,0.85)' },
   statusText: { color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   subHint: { color: '#d1d5db', fontSize: 11, marginTop: 8, textAlign: 'center' },
-  bottomBar: { alignItems: 'center', gap: 10 },
-  autoBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(16,185,129,0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: VERDE },
-  autoText: { color: '#34d399', fontSize: 11, fontWeight: '700' },
+  bottomBar: { alignItems: 'center', gap: 12, width: '100%' },
+  captureBtn: {
+    backgroundColor: '#144e40',
+    paddingVertical: 15,
+    borderRadius: 24,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  captureBtnDisabled: {
+    opacity: 0.6,
+  },
+  captureBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   errorText: { color: '#fecaca', fontSize: 13, fontWeight: '600', textAlign: 'center' },
   primaryBtn: { backgroundColor: '#144e40', paddingVertical: 14, borderRadius: 14, width: '100%', alignItems: 'center' },
   primaryBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  linkBtn: { paddingVertical: 8 },
+  linkBtn: { paddingVertical: 6 },
   linkBtnText: { color: 'rgba(255,255,255,0.75)', fontSize: 12, textDecorationLine: 'underline', textAlign: 'center' },
 });
