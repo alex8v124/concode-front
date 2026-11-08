@@ -179,7 +179,7 @@ export const MiPerfilView: React.FC<Props> = ({ userData, onLogout, onNavigateRe
 
             <h3 className="text-xl font-extrabold text-gray-900 mb-2">¿Estás seguro?</h3>
             <p className="text-xs text-gray-600 leading-relaxed mb-5">
-              Vas a cerrar tu sesión en VECI. Para volver a ingresar necesitarás validar tu acceso nuevamente.
+              Vas a cerrar tu sesión en DeBarrio. Para volver a ingresar necesitarás validar tu acceso nuevamente.
             </p>
 
             <div className="flex flex-col gap-2.5">

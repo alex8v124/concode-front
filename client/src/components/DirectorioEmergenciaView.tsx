@@ -5,7 +5,6 @@ import {
   Shield,
   Flame,
   PlusSquare,
-  AlertTriangle,
   Phone,
   Megaphone,
   Check,
@@ -23,10 +22,8 @@ import {
   BriefcaseMedical,
   Truck,
   MapPin,
-  LifeBuoy,
-  Heart,
-  ShieldCheck,
   Siren,
+  Info,
 } from 'lucide-react';
 
 export type PantallaEmergenciaId =
@@ -86,6 +83,7 @@ const CATEGORIAS_PUBLICAR: CategoriaPublicarOption[] = [
 interface ItemTablero {
   id: string;
   nombre: string;
+  prioridad?: 'alta' | 'media' | 'baja';
   icon: CategoriaPublicarOption['icon'];
   reunido: number;
   meta: number;
@@ -95,6 +93,7 @@ interface ItemTablero {
 }
 
 export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> = ({
+  onBack,
   quadrantName = 'Urb. Los Pinos, Surco',
   userAddress = 'Calle 4, Los Pinos',
   onStepModeChange,
@@ -113,22 +112,36 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
   // Paso 3 (Contador 1 -> 5)
   const [confirmacionesCount, setConfirmacionesCount] = useState(5);
 
-  // Paso 7 (Tablero)
-  const [estoyASalvo, setEstoyASalvo] = useState(false);
-  const [salvoCount, setSalvoCount] = useState(126);
-  const [tabTablero, setTabTablero] = useState<'necesita' | 'ofrece'>('necesita');
-  const [verTodoTablero, setVerTodoTablero] = useState(false);
+  // Modales interactivos (Figma: Reportar necesidad, Ofrecer ayuda, Proponer punto de acopio)
+  const [modalAyuda, setModalAyuda] = useState<'ninguno' | 'reportar' | 'ofrecer' | 'proponer_acopio'>('ninguno');
+  const [seleccionReportar, setSeleccionReportar] = useState<string>('Agua');
+  const [seleccionOfrecer, setSeleccionOfrecer] = useState<string>('Botiquín');
+  const [seleccionAcopio, setSeleccionAcopio] = useState<string>('Local comunal');
 
+  // Items de Necesidad (Figma: Tablero de ayuda humanitaria)
   const [itemsNecesidad, setItemsNecesidad] = useState<ItemTablero[]>([
-    { id: '1', nombre: 'Agua', icon: 'agua', reunido: 120, meta: 300, unidad: 'L', aportado: false, colorBarra: '#b43b1d' },
-    { id: '2', nombre: 'Botiquín', icon: 'botiquin', reunido: 6, meta: 20, unidad: '', aportado: false, colorBarra: '#b43b1d' },
-    { id: '3', nombre: 'Frazadas', icon: 'abrigo', reunido: 45, meta: 80, unidad: '', aportado: false, colorBarra: '#1d4f3c' },
+    { id: '1', nombre: 'Frazadas', prioridad: 'alta', icon: 'abrigo', reunido: 45, meta: 80, unidad: '', aportado: false, colorBarra: '#b43b1d' },
+    { id: '2', nombre: 'Botiquín básico', prioridad: 'alta', icon: 'botiquin', reunido: 6, meta: 20, unidad: '', aportado: false, colorBarra: '#b43b1d' },
+    { id: '3', nombre: 'Voluntarios para limpieza', prioridad: 'media', icon: 'lugar', reunido: 9, meta: 15, unidad: '', aportado: false, colorBarra: '#1f6f4a' },
+    { id: '4', nombre: 'Sacos de arena', prioridad: 'media', icon: 'transporte', reunido: 140, meta: 200, unidad: '', aportado: false, colorBarra: '#1f6f4a' },
   ]);
 
-  const [itemsOfrece, setItemsOfrece] = useState<ItemTablero[]>([
-    { id: '101', nombre: 'Agua', icon: 'agua', reunido: 40, meta: 100, unidad: 'L', aportado: false, colorBarra: '#1d4f3c' },
-    { id: '102', nombre: 'Comida', icon: 'comida', reunido: 15, meta: 30, unidad: 'raciones', aportado: false, colorBarra: '#1d4f3c' },
-    { id: '103', nombre: 'Un lugar', icon: 'lugar', reunido: 3, meta: 10, unidad: 'personas', aportado: false, colorBarra: '#1d4f3c' },
+  // Puntos de Acopio (Figma: Puntos de acopio)
+  const [puntosAcopio, setPuntosAcopio] = useState([
+    {
+      id: '1',
+      nombre: 'Local comunal Los Pinos',
+      distancia: '300 m',
+      detalle: 'Abierto hasta 21:00 · Resp. Gladys S.',
+      verificado: 'Verificado por 3 vecinos',
+    },
+    {
+      id: '2',
+      nombre: 'Parroquia del sector',
+      distancia: '750 m',
+      detalle: 'Solo víveres y frazadas · Resp. Pedro R.',
+      verificado: 'Verificado por 4 vecinos',
+    },
   ]);
 
   // Pasos 8-11 (Publicar)
@@ -247,53 +260,43 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
     }
   };
 
-  const handleAportar = (id: string, esNecesidad: boolean) => {
-    const updater = (prev: ItemTablero[]) =>
+  const handleAportar = (id: string) => {
+    setItemsNecesidad(prev =>
       prev.map(item => {
         if (item.id !== id) return item;
         const nuevoEstado = !item.aportado;
-        const delta = item.unidad === 'L' ? 10 : 1;
+        const delta = 1;
         return {
           ...item,
           aportado: nuevoEstado,
           reunido: nuevoEstado ? Math.min(item.meta, item.reunido + delta) : Math.max(0, item.reunido - delta),
         };
-      });
-
-    if (esNecesidad) {
-      setItemsNecesidad(updater);
-    } else {
-      setItemsOfrece(updater);
-    }
+      })
+    );
   };
 
   const handleConfirmarPublicacion = () => {
     const nuevoItem: ItemTablero = {
       id: Date.now().toString(),
       nombre: categoriaPublicar.nombre === 'Abrigo' ? 'Frazadas' : categoriaPublicar.nombre,
+      prioridad: modoPublicar === 'necesito' ? 'alta' : 'media',
       icon: categoriaPublicar.icon,
       reunido: modoPublicar === 'necesito' ? 0 : cantidadPublicar,
       meta: modoPublicar === 'necesito' ? Math.max(cantidadPublicar, 20) : Math.max(cantidadPublicar * 2, 20),
       unidad: categoriaPublicar.shortUnit === 'L' ? 'L' : '',
       aportado: false,
-      colorBarra: modoPublicar === 'necesito' ? '#b43b1d' : '#1d4f3c',
+      colorBarra: modoPublicar === 'necesito' ? '#b43b1d' : '#1f6f4a',
     };
 
-    if (modoPublicar === 'necesito') {
-      setItemsNecesidad(prev => {
-        const existe = prev.find(i => i.nombre.toLowerCase() === nuevoItem.nombre.toLowerCase());
-        if (existe) {
-          return prev.map(i =>
-            i.id === existe.id ? { ...i, meta: i.meta + cantidadPublicar } : i
-          );
-        }
-        return [nuevoItem, ...prev];
-      });
-      setTabTablero('necesita');
-    } else {
-      setItemsOfrece(prev => [nuevoItem, ...prev]);
-      setTabTablero('ofrece');
-    }
+    setItemsNecesidad(prev => {
+      const existe = prev.find(i => i.nombre.toLowerCase() === nuevoItem.nombre.toLowerCase());
+      if (existe) {
+        return prev.map(i =>
+          i.id === existe.id ? { ...i, meta: i.meta + cantidadPublicar } : i
+        );
+      }
+      return [nuevoItem, ...prev];
+    });
 
     setPantalla('11_publicado');
   };
@@ -502,198 +505,414 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
   }
 
   // ============================================================================
-  // PANTALLAS 7 y 8 · TABLERO DE AYUDA + BOTTOM SHEET ELEGIR PUBLICAR
+  // PANTALLAS 7 y 8 · TABLERO DE AYUDA HUMANITARIA (Figma)
   // ============================================================================
   if (pantalla === '7_tablero' || pantalla === '8_elegir_publicar') {
-    const listaActual = tabTablero === 'necesita' ? itemsNecesidad : itemsOfrece;
-    const listaMostrada = verTodoTablero ? listaActual : listaActual.slice(0, 3);
-
     return (
-      <div className="flex flex-col h-full bg-[#f3efe6] relative select-none overflow-hidden">
-        {/* Cabecera Roja Modo Emergencia */}
-        <div className="bg-[#b43b1d] px-5 pt-4 pb-4 rounded-b-3xl shrink-0">
-          <div className="flex items-center gap-2.5 mb-2.5">
+      <div className="flex flex-col h-full bg-[#f7f5ef] relative select-none overflow-hidden">
+        {/* Cabecera Limpia */}
+        <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-[#eae5db] bg-white shrink-0">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setPantalla('6_activa')}
-              className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center cursor-pointer"
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition cursor-pointer"
             >
-              <ChevronLeft className="w-4.5 h-4.5" />
+              <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="inline-flex items-center gap-1.5 bg-white px-3 py-1 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-[#b43b1d]" />
-              <span className="text-[10px] font-extrabold text-[#b43b1d] tracking-wide">
-                MODO EMERGENCIA
-              </span>
-            </div>
+            <h2 className="text-[17px] font-extrabold text-[#1c1917] tracking-tight">
+              Tablero de ayuda humanitaria
+            </h2>
           </div>
-
-          <h2 className="text-xl font-extrabold text-white mb-3">
-            {tipoSeleccionado.tituloLargo} · {barrioCorto}
-          </h2>
-
-          <button
-            onClick={() => {
-              setEstoyASalvo(prev => {
-                const next = !prev;
-                setSalvoCount(c => (next ? c + 1 : c - 1));
-                return next;
-              });
-            }}
-            className={`w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition cursor-pointer mb-2.5 ${
-              estoyASalvo
-                ? 'bg-[#e7f3ee] text-[#1d4f3c]'
-                : 'bg-white text-[#1c1917]'
-            }`}
-          >
-            <ShieldCheck className="w-4.5 h-4.5" />
-            <span>{estoyASalvo ? 'Estoy a salvo ✓' : 'Estoy a salvo'}</span>
-          </button>
-
-          <div className="flex items-center justify-center gap-1.5 text-white/90 text-xs">
-            <Users className="w-3.5 h-3.5" />
-            <span className="text-base font-black text-white">{salvoCount}</span>
-            <span>vecinos a salvo</span>
-          </div>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#fce8e0] text-[#b43b1d]">
+            {barrioCorto}
+          </span>
         </div>
 
-        {/* Contenido del Tablero */}
-        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28">
-          {renderBannerSinSenal('mb-3.5')}
-          <div className="grid grid-cols-2 bg-[#e6e1d6] p-1 rounded-2xl mb-3.5">
-            <button
-              onClick={() => setTabTablero('necesita')}
-              className={`py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                tabTablero === 'necesita'
-                  ? 'bg-white text-[#1c1917] shadow-2xs'
-                  : 'text-[#6b665e]'
-              }`}
-            >
-              Se necesita
-            </button>
-            <button
-              onClick={() => setTabTablero('ofrece')}
-              className={`py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                tabTablero === 'ofrece'
-                  ? 'bg-white text-[#1c1917] shadow-2xs'
-                  : 'text-[#6b665e]'
-              }`}
-            >
-              Se ofrece
-            </button>
-          </div>
-
-          <div className="space-y-2.5">
-            {listaMostrada.map(item => {
+        {/* Contenido con scroll */}
+        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28 space-y-5">
+          
+          {/* Lista de Necesidades con Barra de Progreso y Botón "Aporto" */}
+          <div className="space-y-3">
+            {itemsNecesidad.map(item => {
               const pct = Math.min(100, Math.round((item.reunido / item.meta) * 100));
-              const unidadSufijo = item.unidad ? ` ${item.unidad}` : '';
+              const esAlta = item.prioridad === 'alta';
               return (
                 <div
                   key={item.id}
-                  className="bg-white rounded-2xl p-3.5 border border-[#ebe6dc] flex items-center gap-3"
+                  className="bg-white rounded-3xl p-4 border border-[#eae5db] shadow-2xs flex flex-col gap-2.5"
                 >
-                  <div
-                    className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 ${
-                      tabTablero === 'necesita' ? 'bg-[#b43b1d]' : 'bg-[#1d4f3c]'
-                    }`}
-                  >
-                    {renderCategoryIcon(item.icon, 'w-5 h-5')}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-[15px] font-bold text-[#1c1917] leading-snug">
+                        {item.nombre}
+                      </h4>
+                      <p
+                        className={`text-xs font-semibold mt-0.5 ${
+                          esAlta ? 'text-[#b43b1d]' : 'text-[#1f6f4a]'
+                        }`}
+                      >
+                        {esAlta ? 'Prioridad alta' : 'Prioridad media'}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleAportar(item.id)}
+                      className={`px-5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                        item.aportado
+                          ? 'bg-[#1f6f4a] text-white shadow-2xs'
+                          : 'bg-[#1c1917] text-white hover:bg-black'
+                      }`}
+                    >
+                      {item.aportado ? 'Listo ✓' : 'Aporto'}
+                    </button>
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-bold text-[#1c1917] mb-1.5">{item.nombre}</h4>
-                    <div className="h-1.5 bg-[#ebe6dc] rounded-full overflow-hidden mb-1">
+                  {/* Barra de progreso */}
+                  <div>
+                    <div className="h-2 bg-[#eae5db] rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full"
-                        style={{ width: `${pct}%`, backgroundColor: item.colorBarra }}
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: esAlta ? '#b43b1d' : '#1f6f4a',
+                        }}
                       />
                     </div>
-                    <span className="text-[11px] text-[#78716c] font-medium">
-                      {item.reunido} / {item.meta}
-                      {unidadSufijo}
+                    <span className="block text-[11px] text-[#78716c] font-medium mt-1.5">
+                      {item.reunido} de {item.meta} reunidos
                     </span>
                   </div>
-
-                  <button
-                    onClick={() => handleAportar(item.id, tabTablero === 'necesita')}
-                    className={`px-3.5 py-2 rounded-xl text-white text-xs font-bold transition cursor-pointer shrink-0 ${
-                      item.aportado ? 'bg-[#1d4f3c]' : 'bg-[#1c1917]'
-                    }`}
-                  >
-                    {item.aportado
-                      ? 'Listo ✓'
-                      : tabTablero === 'necesita'
-                      ? 'Aporto'
-                      : 'Recibir'}
-                  </button>
                 </div>
               );
             })}
           </div>
 
+          {/* Sección: Puntos de Acopio */}
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[16px] font-bold text-[#1c1917]">
+                Puntos de acopio
+              </h3>
+              <button
+                onClick={() => setModalAyuda('proponer_acopio')}
+                className="px-3.5 py-1.5 rounded-full bg-[#fce8e0] text-[#b43b1d] hover:bg-[#fad8cd] text-xs font-bold transition cursor-pointer"
+              >
+                + Proponer punto
+              </button>
+            </div>
+
+            {/* Tarjeta Unificada de Puntos de Acopio (Figma) */}
+            <div className="bg-white rounded-3xl border border-[#eae5db] shadow-2xs divide-y divide-gray-100 overflow-hidden">
+              {puntosAcopio.map(pto => (
+                <div
+                  key={pto.id}
+                  className="p-4 flex items-start gap-3 hover:bg-gray-50/60 transition"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#fce8e0] text-[#b43b1d] flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin className="w-4 h-4 text-[#b43b1d]" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h5 className="text-[14px] font-bold text-[#1c1917] leading-snug">
+                      {pto.nombre}
+                    </h5>
+                    <p className="text-xs text-[#78716c] mt-0.5 leading-snug">
+                      {pto.distancia} · {pto.detalle}
+                    </p>
+                    <p className="text-xs font-bold text-[#1f6f4a] mt-1">
+                      {pto.verificado}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Barra Fija Inferior con los 2 Botones de Acción */}
+        <div className="absolute bottom-0 left-0 right-0 bg-[#f7f5ef]/95 backdrop-blur-xs p-4 border-t border-[#eae5db] flex items-center gap-3 z-30">
           <button
-            onClick={() => setVerTodoTablero(prev => !prev)}
-            className="mt-3 text-xs font-bold text-[#1d4f3c] underline cursor-pointer"
+            onClick={() => {
+              setModoPublicar('necesito');
+              setModalAyuda('reportar');
+            }}
+            className="flex-1 py-3.5 rounded-2xl bg-white border-2 border-[#b43b1d] text-[#b43b1d] hover:bg-orange-50 font-bold text-sm text-center transition cursor-pointer shadow-2xs"
           >
-            {verTodoTablero ? 'Ver menos' : 'Ver todo'}
+            Reportar necesidad
+          </button>
+          <button
+            onClick={() => {
+              setModoPublicar('ayudar');
+              setModalAyuda('ofrecer');
+            }}
+            className="flex-1 py-3.5 rounded-2xl bg-[#144e40] hover:bg-[#0f3d32] text-white font-bold text-sm text-center transition cursor-pointer shadow-2xs"
+          >
+            Ofrecer ayuda
           </button>
         </div>
 
-        {/* Botón Flotante + Verde */}
-        <button
-          onClick={() => setPantalla('8_elegir_publicar')}
-          className="absolute bottom-22 right-5 w-12 h-12 rounded-full bg-[#1d4f3c] text-white flex items-center justify-center shadow-lg hover:scale-105 transition cursor-pointer z-20"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-
-        {/* PANTALLA 8 · OVERLAY ELEGIR "¿Qué quieres publicar?" */}
-        {pantalla === '8_elegir_publicar' && (
-          <div className="absolute inset-0 bg-[#1c1917]/55 flex flex-col justify-end z-40">
-            <div className="flex-1" onClick={() => setPantalla('7_tablero')} />
-            <div className="bg-[#f3efe6] rounded-t-3xl px-5 pt-3 pb-7">
-              <div className="w-10 h-1 rounded-full bg-[#d4cdc0] mx-auto mb-4" />
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-extrabold text-[#1c1917]">
-                  ¿Qué quieres publicar?
-                </h3>
+        {/* ==================================================================== */}
+        {/* MODAL 1: REPORTAR NECESIDAD (Paso 1 de 3) */}
+        {/* ==================================================================== */}
+        {modalAyuda === 'reportar' && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+            <div className="bg-[#f7f5ef] w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] p-5 pb-7 flex flex-col gap-4 border border-gray-200 shadow-2xl max-h-[92vh] overflow-y-auto">
+              
+              {/* Barra superior: cerrar y paso */}
+              <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setPantalla('7_tablero')}
-                  className="w-9 h-9 rounded-full bg-white border border-[#ebe6dc] flex items-center justify-center text-[#1c1917] cursor-pointer"
+                  onClick={() => setModalAyuda('ninguno')}
+                  className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-600 hover:text-black cursor-pointer shadow-2xs"
                 >
                   <X className="w-4 h-4" />
                 </button>
+                <span className="text-xs font-semibold text-gray-600">Paso 1 de 3</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    setModoPublicar('necesito');
-                    setPantalla('9_que_publicar');
-                  }}
-                  className="bg-white rounded-2xl py-6 flex flex-col items-center border border-[#ebe6dc] hover:border-[#b43b1d] transition cursor-pointer"
-                >
-                  <div className="w-12 h-12 rounded-full bg-[#b43b1d] text-white flex items-center justify-center mb-2.5">
-                    <LifeBuoy className="w-6 h-6" />
-                  </div>
-                  <span className="text-sm font-bold text-[#1c1917]">Necesito</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setModoPublicar('ayudar');
-                    setPantalla('9_que_publicar');
-                  }}
-                  className="bg-white rounded-2xl py-6 flex flex-col items-center border border-[#ebe6dc] hover:border-[#1d4f3c] transition cursor-pointer"
-                >
-                  <div className="w-12 h-12 rounded-full bg-[#1d4f3c] text-white flex items-center justify-center mb-2.5">
-                    <Heart className="w-6 h-6" />
-                  </div>
-                  <span className="text-sm font-bold text-[#1c1917]">Puedo ayudar</span>
-                </button>
+              {/* Barra de progreso de 3 segmentos */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="h-1 rounded-full bg-[#b43b1d]" />
+                <div className="h-1 rounded-full bg-[#e5e0d4]" />
+                <div className="h-1 rounded-full bg-[#e5e0d4]" />
               </div>
+
+              {/* Insignia / Badge */}
+              <div>
+                <span className="inline-block bg-[#b43b1d] text-white text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">
+                  Reportar necesidad
+                </span>
+                <h3 className="text-xl font-extrabold text-gray-900 mt-2">
+                  ¿Qué se necesita?
+                </h3>
+              </div>
+
+              {/* Grilla 2 columnas con 8 categorías */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { id: 'Agua', desc: 'Embotellada o bidones' },
+                  { id: 'Alimentos', desc: 'Víveres o comida lista' },
+                  { id: 'Abrigo', desc: 'Frazadas, ropa' },
+                  { id: 'Botiquín', desc: 'Primeros auxilios' },
+                  { id: 'Voluntarios', desc: 'Manos para ayudar' },
+                  { id: 'Transporte', desc: 'Llevar personas o cosas' },
+                  { id: 'Alojamiento', desc: 'Un lugar para dormir' },
+                  { id: 'Otro', desc: 'Algo distinto' },
+                ].map(op => {
+                  const sel = seleccionReportar === op.id;
+                  return (
+                    <button
+                      key={op.id}
+                      type="button"
+                      onClick={() => setSeleccionReportar(op.id)}
+                      className={`p-3 rounded-2xl text-left transition cursor-pointer border ${
+                        sel
+                          ? 'bg-white border-2 border-[#b43b1d] shadow-xs'
+                          : 'bg-white border-gray-200/90 hover:border-gray-300'
+                      }`}
+                    >
+                      <h5 className="font-bold text-sm text-gray-900">{op.id}</h5>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{op.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  alert(`Se reportó solicitud para: ${seleccionReportar}`);
+                  setModalAyuda('ninguno');
+                }}
+                className="w-full mt-2 py-3.5 rounded-2xl bg-[#b43b1d] text-white font-bold text-sm hover:bg-[#9e3218] transition cursor-pointer"
+              >
+                Continuar
+              </button>
             </div>
           </div>
         )}
+
+        {/* ==================================================================== */}
+        {/* MODAL 2: OFRECER AYUDA (Paso 1 de 3) */}
+        {/* ==================================================================== */}
+        {modalAyuda === 'ofrecer' && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+            <div className="bg-[#f7f5ef] w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] p-5 pb-7 flex flex-col gap-4 border border-gray-200 shadow-2xl max-h-[92vh] overflow-y-auto">
+              
+              {/* Barra superior: cerrar y paso */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setModalAyuda('ninguno')}
+                  className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-600 hover:text-black cursor-pointer shadow-2xs"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-semibold text-gray-600">Paso 1 de 3</span>
+              </div>
+
+              {/* Barra de progreso de 3 segmentos */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="h-1 rounded-full bg-[#144e40]" />
+                <div className="h-1 rounded-full bg-[#e5e0d4]" />
+                <div className="h-1 rounded-full bg-[#e5e0d4]" />
+              </div>
+
+              {/* Insignia / Badge */}
+              <div>
+                <span className="inline-block bg-[#144e40] text-white text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">
+                  Ofrecer ayuda
+                </span>
+                <h3 className="text-xl font-extrabold text-gray-900 mt-2">
+                  ¿Qué puedes aportar?
+                </h3>
+              </div>
+
+              {/* Grilla 2 columnas con 8 categorías con estado */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { id: 'Agua', desc: 'Se necesita ahora', urgente: true },
+                  { id: 'Alimentos', desc: 'Sin pedidos activos', urgente: false },
+                  { id: 'Abrigo', desc: 'Se necesita ahora', urgente: true },
+                  { id: 'Botiquín', desc: 'Se necesita ahora', urgente: true },
+                  { id: 'Mi tiempo', desc: 'Se necesita ahora', urgente: true },
+                  { id: 'Transporte', desc: 'Sin pedidos activos', urgente: false },
+                  { id: 'Alojamiento', desc: 'Sin pedidos activos', urgente: false },
+                  { id: 'Otro', desc: 'Sin pedidos activos', urgente: false },
+                ].map(op => {
+                  const sel = seleccionOfrecer === op.id;
+                  return (
+                    <button
+                      key={op.id}
+                      type="button"
+                      onClick={() => setSeleccionOfrecer(op.id)}
+                      className={`p-3 rounded-2xl text-left transition cursor-pointer border ${
+                        sel
+                          ? 'bg-white border-2 border-[#b43b1d] shadow-xs'
+                          : 'bg-white border-gray-200/90 hover:border-gray-300'
+                      }`}
+                    >
+                      <h5 className="font-bold text-sm text-gray-900">{op.id}</h5>
+                      <p
+                        className={`text-[11px] mt-0.5 leading-snug font-medium ${
+                          op.urgente ? 'text-[#b43b1d]' : 'text-gray-400'
+                        }`}
+                      >
+                        {op.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  alert(`Aporte registrado para: ${seleccionOfrecer}`);
+                  setModalAyuda('ninguno');
+                }}
+                className="w-full mt-2 py-3.5 rounded-2xl bg-[#144e40] text-white font-bold text-sm hover:bg-[#0f3d32] transition cursor-pointer"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* MODAL 3: PROPONER PUNTO DE ACOPIO (Paso 1 de 3) */}
+        {/* ==================================================================== */}
+        {modalAyuda === 'proponer_acopio' && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+            <div className="bg-[#f7f5ef] w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] p-5 pb-7 flex flex-col gap-4 border border-gray-200 shadow-2xl max-h-[92vh] overflow-y-auto">
+              
+              {/* Barra superior: cerrar y paso */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setModalAyuda('ninguno')}
+                  className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-600 hover:text-black cursor-pointer shadow-2xs"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-semibold text-gray-600">Paso 1 de 3</span>
+              </div>
+
+              {/* Barra de progreso de 3 segmentos */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="h-1 rounded-full bg-[#b43b1d]" />
+                <div className="h-1 rounded-full bg-[#e5e0d4]" />
+                <div className="h-1 rounded-full bg-[#e5e0d4]" />
+              </div>
+
+              {/* Insignia / Badge */}
+              <div>
+                <span className="inline-block bg-[#b43b1d] text-white text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">
+                  Proponer punto de acopio
+                </span>
+                <h3 className="text-xl font-extrabold text-gray-900 mt-2">
+                  ¿Qué tipo de lugar es?
+                </h3>
+              </div>
+
+              {/* Grilla 2 columnas con 6 tipos de lugar */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { id: 'Local comunal', desc: 'Espacio del barrio' },
+                  { id: 'Parroquia o iglesia', desc: 'Con permiso del encargado' },
+                  { id: 'Colegio', desc: 'Con permiso de la dirección' },
+                  { id: 'Mi casa', desc: 'Si tienes espacio' },
+                  { id: 'Bodega o negocio', desc: 'Con permiso del dueño' },
+                  { id: 'Otro lugar', desc: 'Parque, cochera...' },
+                ].map(op => {
+                  const sel = seleccionAcopio === op.id;
+                  return (
+                    <button
+                      key={op.id}
+                      type="button"
+                      onClick={() => setSeleccionAcopio(op.id)}
+                      className={`p-3 rounded-2xl text-left transition cursor-pointer border ${
+                        sel
+                          ? 'bg-white border-2 border-[#b43b1d] shadow-xs'
+                          : 'bg-white border-gray-200/90 hover:border-gray-300'
+                      }`}
+                    >
+                      <h5 className="font-bold text-sm text-gray-900">{op.id}</h5>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{op.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Nota de Responsabilidad */}
+              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-white border border-gray-200 text-xs text-gray-600 leading-snug">
+                <Info className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                <span>
+                  Quien propone el punto queda como responsable. Debe ser un lugar al que los vecinos puedan llegar a pie.
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPuntosAcopio(prev => [
+                    ...prev,
+                    {
+                      id: Date.now().toString(),
+                      nombre: `${seleccionAcopio} - Nuevo`,
+                      distancia: '500 m',
+                      detalle: 'Abierto para emergencias · Resp. Tú',
+                      verificado: 'Verificado por 1 vecino',
+                    },
+                  ]);
+                  setModalAyuda('ninguno');
+                }}
+                className="w-full mt-1 py-3.5 rounded-2xl bg-[#b43b1d] text-white font-bold text-sm hover:bg-[#9e3218] transition cursor-pointer"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     );
   }
@@ -910,10 +1129,20 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
       )}
 
       <div className="p-5 space-y-4">
-        {/* Cabecera */}
-        <div>
-          <h2 className="text-2xl font-extrabold text-[#1c1917] tracking-tight">Emergencia</h2>
-          <p className="text-xs text-[#78716c]">{quadrantName}</p>
+        {/* Cabecera (Figma: Emergencias con botón circular de retroceso) */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (onBack) onBack();
+            }}
+            className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-800 shadow-2xs hover:bg-gray-50 transition cursor-pointer shrink-0"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-2xl font-black text-[#1c1917] tracking-tight">Emergencias</h2>
+            <p className="text-xs text-[#78716c] font-medium">{quadrantName}</p>
+          </div>
         </div>
 
         {/* Estado Sin Señal */}
@@ -936,71 +1165,55 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
           </button>
         )}
 
-        {/* Cuadrícula 2x2 Números de Emergencia en Verde Oscuro */}
+        {/* Cuadrícula 2x2 Números de Emergencia (Figma: Rojo, Negro, Blanco SAMU, Blanco Defensa Civil) */}
         <div className="grid grid-cols-2 gap-3">
+          {/* 105 Policía Nacional - Rojo Terracota */}
           <button
-            onClick={() => handleLlamar('105', 'Policía')}
-            className="p-4 rounded-2xl bg-[#1d4f3c] text-white text-left flex flex-col justify-between min-h-[112px] hover:opacity-95 transition cursor-pointer"
+            onClick={() => handleLlamar('105', 'Policía Nacional')}
+            className="p-4 rounded-3xl bg-[#b43b1d] text-white text-left flex flex-col justify-between min-h-[120px] shadow-xs hover:opacity-95 transition cursor-pointer"
           >
-            <div className="flex items-center justify-between w-full">
-              <Shield className="w-5 h-5" />
-              <span className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-                <Phone className="w-3.5 h-3.5" />
-              </span>
-            </div>
+            <Shield className="w-5 h-5 text-white" strokeWidth={2} />
             <div>
-              <span className="text-3xl font-black block leading-none">105</span>
-              <span className="text-xs font-semibold text-emerald-100 mt-1 block">Policía</span>
+              <span className="text-3xl font-black block leading-none text-white tracking-tight">105</span>
+              <span className="text-xs font-bold text-white mt-1.5 block">Policía Nacional</span>
             </div>
           </button>
 
+          {/* 116 Bomberos - Negro Carbón */}
           <button
             onClick={() => handleLlamar('116', 'Bomberos')}
-            className="p-4 rounded-2xl bg-[#1d4f3c] text-white text-left flex flex-col justify-between min-h-[112px] hover:opacity-95 transition cursor-pointer"
+            className="p-4 rounded-3xl bg-[#1c1917] text-white text-left flex flex-col justify-between min-h-[120px] shadow-xs hover:opacity-95 transition cursor-pointer"
           >
-            <div className="flex items-center justify-between w-full">
-              <Flame className="w-5 h-5" />
-              <span className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-                <Phone className="w-3.5 h-3.5" />
-              </span>
-            </div>
+            <Flame className="w-5 h-5 text-white" strokeWidth={2} />
             <div>
-              <span className="text-3xl font-black block leading-none">116</span>
-              <span className="text-xs font-semibold text-emerald-100 mt-1 block">Bomberos</span>
+              <span className="text-3xl font-black block leading-none text-white tracking-tight">116</span>
+              <span className="text-xs font-bold text-white mt-1.5 block">Bomberos</span>
             </div>
           </button>
 
+          {/* 106 SAMU - Blanco con Cruz Roja */}
           <button
-            onClick={() => handleLlamar('106', 'SAMU')}
-            className="p-4 rounded-2xl bg-[#1d4f3c] text-white text-left flex flex-col justify-between min-h-[112px] hover:opacity-95 transition cursor-pointer"
+            onClick={() => handleLlamar('106', 'SAMU Ambulancia')}
+            className="p-4 rounded-3xl bg-white border border-[#eae5db] text-[#1c1917] text-left flex flex-col justify-between min-h-[120px] shadow-2xs hover:bg-gray-50 transition cursor-pointer"
           >
-            <div className="flex items-center justify-between w-full">
-              <PlusSquare className="w-5 h-5" />
-              <span className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-                <Phone className="w-3.5 h-3.5" />
-              </span>
-            </div>
+            <PlusSquare className="w-5 h-5 text-[#b43b1d]" strokeWidth={2.5} />
             <div>
-              <span className="text-3xl font-black block leading-none">106</span>
-              <span className="text-xs font-semibold text-emerald-100 mt-1 block">SAMU</span>
+              <span className="text-3xl font-black block leading-none text-[#1c1917] tracking-tight">106</span>
+              <span className="text-xs font-bold text-[#374151] mt-1.5 block leading-tight">
+                SAMU ·<br />Ambulancia
+              </span>
             </div>
           </button>
 
+          {/* 115 Defensa Civil - Blanco con Pulso Rojo */}
           <button
             onClick={() => handleLlamar('115', 'Defensa Civil')}
-            className="p-4 rounded-2xl bg-[#1d4f3c] text-white text-left flex flex-col justify-between min-h-[112px] hover:opacity-95 transition cursor-pointer"
+            className="p-4 rounded-3xl bg-white border border-[#eae5db] text-[#1c1917] text-left flex flex-col justify-between min-h-[120px] shadow-2xs hover:bg-gray-50 transition cursor-pointer"
           >
-            <div className="flex items-center justify-between w-full">
-              <AlertTriangle className="w-5 h-5" />
-              <span className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-                <Phone className="w-3.5 h-3.5" />
-              </span>
-            </div>
+            <Activity className="w-5 h-5 text-[#b43b1d]" strokeWidth={2.5} />
             <div>
-              <span className="text-3xl font-black block leading-none">115</span>
-              <span className="text-xs font-semibold text-emerald-100 mt-1 block">
-                Defensa Civil
-              </span>
+              <span className="text-3xl font-black block leading-none text-[#1c1917] tracking-tight">115</span>
+              <span className="text-xs font-bold text-[#374151] mt-1.5 block">Defensa Civil</span>
             </div>
           </button>
         </div>
@@ -1028,6 +1241,47 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
             </>
           )}
         </button>
+
+        {/* Sección: Puntos de acopio (Figma) */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-extrabold text-[#1c1917]">Puntos de acopio</h3>
+            <button
+              onClick={() => {
+                setPantalla('7_tablero');
+                setModalAyuda('proponer_acopio');
+              }}
+              className="px-3.5 py-1.5 rounded-full bg-[#fce8e0] text-[#b43b1d] hover:bg-[#fad8cd] text-xs font-bold transition cursor-pointer"
+            >
+              + Proponer punto
+            </button>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-[#eae5db] shadow-2xs divide-y divide-gray-100 overflow-hidden">
+            {puntosAcopio.map(pto => (
+              <div
+                key={pto.id}
+                className="p-4 flex items-start gap-3 hover:bg-gray-50/60 transition"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#fce8e0] text-[#b43b1d] flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="w-4 h-4 text-[#b43b1d]" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h5 className="text-[14px] font-bold text-[#1c1917] leading-snug">
+                    {pto.nombre}
+                  </h5>
+                  <p className="text-xs text-[#78716c] mt-0.5 leading-snug">
+                    {pto.distancia} · {pto.detalle}
+                  </p>
+                  <p className="text-xs font-bold text-[#1f6f4a] mt-1">
+                    {pto.verificado}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Cerca de ti + Ver todos */}
         <div>

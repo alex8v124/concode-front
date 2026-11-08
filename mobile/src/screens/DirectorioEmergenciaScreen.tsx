@@ -10,6 +10,7 @@ import {
   Alert,
   TextInput,
   Linking,
+  Modal,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { mobileApiService } from '../services/api';
@@ -71,6 +72,7 @@ const CATEGORIAS_PUBLICAR: CategoriaPublicarOption[] = [
 interface ItemTablero {
   id: string;
   nombre: string;
+  prioridad?: 'alta' | 'media' | 'baja';
   iconName: CategoriaPublicarOption['iconName'];
   reunido: number;
   meta: number;
@@ -80,6 +82,7 @@ interface ItemTablero {
 }
 
 export const DirectorioEmergenciaScreen: React.FC<Props> = ({
+  onBack,
   userQuadrant = 'Urb. Los Pinos, Surco',
   userAddress = 'Calle 4, Los Pinos',
   onStepModeChange,
@@ -104,16 +107,42 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
   const [tabTablero, setTabTablero] = useState<'necesita' | 'ofrece'>('necesita');
   const [verTodoTablero, setVerTodoTablero] = useState(false);
 
+  // Modales interactivos (Figma: Reportar necesidad, Ofrecer ayuda, Proponer punto de acopio)
+  const [modalAyuda, setModalAyuda] = useState<'ninguno' | 'reportar' | 'ofrecer' | 'proponer_acopio'>('ninguno');
+  const [seleccionReportar, setSeleccionReportar] = useState<string>('Agua');
+  const [seleccionOfrecer, setSeleccionOfrecer] = useState<string>('Botiquín');
+  const [seleccionAcopio, setSeleccionAcopio] = useState<string>('Local comunal');
+
+  // Items de Necesidad (Figma: Tablero de ayuda humanitaria)
   const [itemsNecesidad, setItemsNecesidad] = useState<ItemTablero[]>([
-    { id: '1', nombre: 'Agua', iconName: 'water-outline', reunido: 120, meta: 300, unidad: 'L', aportado: false, colorBarra: '#b43b1d' },
-    { id: '2', nombre: 'Botiquín', iconName: 'medical-bag', reunido: 6, meta: 20, unidad: '', aportado: false, colorBarra: '#b43b1d' },
-    { id: '3', nombre: 'Frazadas', iconName: 'tshirt-crew-outline', reunido: 45, meta: 80, unidad: '', aportado: false, colorBarra: '#1d4f3c' },
+    { id: '1', nombre: 'Frazadas', prioridad: 'alta', iconName: 'tshirt-crew-outline', reunido: 45, meta: 80, unidad: '', aportado: false, colorBarra: '#b43b1d' },
+    { id: '2', nombre: 'Botiquín básico', prioridad: 'alta', iconName: 'medical-bag', reunido: 6, meta: 20, unidad: '', aportado: false, colorBarra: '#b43b1d' },
+    { id: '3', nombre: 'Voluntarios para limpieza', prioridad: 'media', iconName: 'map-marker-outline', reunido: 9, meta: 15, unidad: '', aportado: false, colorBarra: '#1f6f4a' },
+    { id: '4', nombre: 'Sacos de arena', prioridad: 'media', iconName: 'truck-outline', reunido: 140, meta: 200, unidad: '', aportado: false, colorBarra: '#1f6f4a' },
+  ]);
+
+  // Puntos de Acopio (Figma)
+  const [puntosAcopio, setPuntosAcopio] = useState([
+    {
+      id: '1',
+      nombre: 'Local comunal Los Pinos',
+      distancia: '300 m',
+      detalle: 'Abierto hasta 21:00 · Resp. Gladys S.',
+      verificado: 'Verificado por 3 vecinos',
+    },
+    {
+      id: '2',
+      nombre: 'Parroquia del sector',
+      distancia: '750 m',
+      detalle: 'Solo víveres y frazadas · Resp. Pedro R.',
+      verificado: 'Verificado por 4 vecinos',
+    },
   ]);
 
   const [itemsOfrece, setItemsOfrece] = useState<ItemTablero[]>([
-    { id: '101', nombre: 'Agua', iconName: 'water-outline', reunido: 40, meta: 100, unidad: 'L', aportado: false, colorBarra: '#1d4f3c' },
-    { id: '102', nombre: 'Comida', iconName: 'silverware-fork-knife', reunido: 15, meta: 30, unidad: 'raciones', aportado: false, colorBarra: '#1d4f3c' },
-    { id: '103', nombre: 'Un lugar', iconName: 'map-marker-outline', reunido: 3, meta: 10, unidad: 'personas', aportado: false, colorBarra: '#1d4f3c' },
+    { id: '101', nombre: 'Agua', prioridad: 'alta', iconName: 'water-outline', reunido: 40, meta: 100, unidad: 'L', aportado: false, colorBarra: '#1f6f4a' },
+    { id: '102', nombre: 'Comida', prioridad: 'media', iconName: 'silverware-fork-knife', reunido: 15, meta: 30, unidad: 'raciones', aportado: false, colorBarra: '#1f6f4a' },
+    { id: '103', nombre: 'Un lugar', prioridad: 'media', iconName: 'map-marker-outline', reunido: 3, meta: 10, unidad: 'personas', aportado: false, colorBarra: '#1f6f4a' },
   ]);
 
   // Pasos 8, 9, 10, 11 (Publicar)
@@ -499,247 +528,393 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
   }
 
   // ============================================================================
-  // PANTALLAS 7 y 8 · TABLERO DE AYUDA + BOTTOM SHEET ELEGIR PUBLICAR
+  // PANTALLAS 7 y 8 · TABLERO DE AYUDA HUMANITARIA (Figma)
   // ============================================================================
   if (pantalla === '7_tablero' || pantalla === '8_elegir_publicar') {
-    const listaActual = tabTablero === 'necesita' ? itemsNecesidad : itemsOfrece;
-    const listaMostrada = verTodoTablero ? listaActual : listaActual.slice(0, 3);
-
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.mainContainer}>
-          {/* Cabecera Roja Modo Emergencia */}
-          <View style={styles.tableroRedHeader}>
-            <View style={styles.tableroHeaderTopRow}>
-              <TouchableOpacity
-                style={styles.translucentBackBtn}
-                onPress={() => setPantalla('6_activa')}
-                activeOpacity={0.75}
-              >
-                <Feather name="chevron-left" size={22} color="#ffffff" />
-              </TouchableOpacity>
-
-              <View style={styles.modoEmergenciaPill}>
-                <View style={styles.redDotIndicator} />
-                <Text style={styles.modoEmergenciaPillText}>MODO EMERGENCIA</Text>
-              </View>
-            </View>
-
-            <Text style={styles.tableroHeaderTitle}>
-              {tipoSeleccionado.tituloLargo} · {barrioCorto}
-            </Text>
-
+          {/* Cabecera Limpia */}
+          <View style={styles.tableroCleanHeader}>
             <TouchableOpacity
-              style={[
-                styles.estoyASalvoWhiteBtn,
-                estoyASalvo && styles.estoyASalvoWhiteBtnActive,
-              ]}
-              onPress={() => {
-                setEstoyASalvo(prev => {
-                  const next = !prev;
-                  setSalvoCount(c => (next ? c + 1 : c - 1));
-                  return next;
-                });
-              }}
-              activeOpacity={0.85}
+              style={styles.tableroBackCircle}
+              onPress={() => setPantalla('6_activa')}
+              activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="shield-check-outline"
-                size={20}
-                color={estoyASalvo ? '#1d4f3c' : '#1c1917'}
-              />
-              <Text
-                style={[
-                  styles.estoyASalvoBtnLabel,
-                  estoyASalvo && { color: '#1d4f3c' },
-                ]}
-              >
-                {estoyASalvo ? 'Estoy a salvo ✓' : 'Estoy a salvo'}
-              </Text>
+              <Feather name="chevron-left" size={22} color="#111827" />
             </TouchableOpacity>
-
-            <View style={styles.salvoCounterRow}>
-              <Feather name="users" size={15} color="#fde8e2" />
-              <Text style={styles.salvoCounterNumber}>{salvoCount}</Text>
-              <Text style={styles.salvoCounterLabel}>vecinos a salvo</Text>
+            <Text style={styles.tableroCleanTitle}>Tablero de ayuda humanitaria</Text>
+            <View style={styles.tableroZoneBadge}>
+              <Text style={styles.tableroZoneBadgeText}>{barrioCorto}</Text>
             </View>
           </View>
 
-          {/* Contenido del Tablero */}
+          {/* Contenido Scrollable */}
           <ScrollView
-            contentContainerStyle={styles.tableroBodyScroll}
+            contentContainerStyle={styles.tableroBodyScrollNew}
             showsVerticalScrollIndicator={false}
           >
-            {renderBannerSinSenal(false)}
-            {/* Selector Se necesita / Se ofrece */}
-            <View style={styles.segmentedControlWrap}>
-              <TouchableOpacity
-                style={[
-                  styles.segmentedTabBtn,
-                  tabTablero === 'necesita' && styles.segmentedTabBtnActive,
-                ]}
-                onPress={() => setTabTablero('necesita')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.segmentedTabText,
-                    tabTablero === 'necesita' && styles.segmentedTabTextActive,
-                  ]}
-                >
-                  Se necesita
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.segmentedTabBtn,
-                  tabTablero === 'ofrece' && styles.segmentedTabBtnActive,
-                ]}
-                onPress={() => setTabTablero('ofrece')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.segmentedTabText,
-                    tabTablero === 'ofrece' && styles.segmentedTabTextActive,
-                  ]}
-                >
-                  Se ofrece
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Tarjetas de Recursos */}
-            <View style={styles.tableroCardsList}>
-              {listaMostrada.map(item => {
+            {/* Tarjetas de Necesidad */}
+            <View style={styles.tableroCardsListNew}>
+              {itemsNecesidad.map(item => {
                 const pct = Math.min(100, Math.round((item.reunido / item.meta) * 100));
-                const unidadSufijo = item.unidad ? ` ${item.unidad}` : '';
+                const esAlta = item.prioridad === 'alta';
                 return (
-                  <View key={item.id} style={styles.resourceItemCard}>
-                    <View
-                      style={[
-                        styles.resourceIconBox,
-                        { backgroundColor: tabTablero === 'necesita' ? '#b43b1d' : '#1d4f3c' },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={item.iconName}
-                        size={22}
-                        color="#ffffff"
+                  <View key={item.id} style={styles.needCardNew}>
+                    <View style={styles.needCardTopRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.needCardTitle}>{item.nombre}</Text>
+                        <Text
+                          style={[
+                            styles.needCardPriority,
+                            { color: esAlta ? '#b43b1d' : '#1f6f4a' },
+                          ]}
+                        >
+                          {esAlta ? 'Prioridad alta' : 'Prioridad media'}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.aportoPillBtn,
+                          item.aportado && styles.aportoPillBtnActive,
+                        ]}
+                        onPress={() => handleAportar(item.id, true)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.aportoPillBtnText}>
+                          {item.aportado ? 'Listo ✓' : 'Aporto'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Barra de progreso */}
+                    <View style={styles.needProgressTrack}>
+                      <View
+                        style={[
+                          styles.needProgressFill,
+                          {
+                            width: `${pct}%`,
+                            backgroundColor: esAlta ? '#b43b1d' : '#1f6f4a',
+                          },
+                        ]}
                       />
                     </View>
-
-                    <View style={styles.resourceMiddleCol}>
-                      <Text style={styles.resourceNameText}>{item.nombre}</Text>
-                      <View style={styles.resourceProgressTrack}>
-                        <View
-                          style={[
-                            styles.resourceProgressFill,
-                            { width: `${pct}%`, backgroundColor: item.colorBarra },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.resourceCountSub}>
-                        {item.reunido} / {item.meta}{unidadSufijo}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.aportoDarkBtn,
-                        item.aportado && styles.aportoDarkBtnActive,
-                      ]}
-                      onPress={() => handleAportar(item.id, tabTablero === 'necesita')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.aportoDarkBtnText}>
-                        {item.aportado
-                          ? 'Listo ✓'
-                          : tabTablero === 'necesita'
-                          ? 'Aporto'
-                          : 'Recibir'}
-                      </Text>
-                    </TouchableOpacity>
+                    <Text style={styles.needProgressCount}>
+                      {item.reunido} de {item.meta} reunidos
+                    </Text>
                   </View>
                 );
               })}
             </View>
 
-            <TouchableOpacity
-              style={styles.verTodoLinkBtn}
-              onPress={() => setVerTodoTablero(prev => !prev)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.verTodoLinkText}>
-                {verTodoTablero ? 'Ver menos' : 'Ver todo'}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+            {/* Puntos de Acopio */}
+            <View style={styles.acopioSection}>
+              <View style={styles.acopioHeaderRow}>
+                <Text style={styles.acopioSectionTitle}>Puntos de acopio</Text>
+                <TouchableOpacity
+                  style={styles.proponerPuntoBtn}
+                  onPress={() => setModalAyuda('proponer_acopio')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.proponerPuntoText}>+ Proponer punto</Text>
+                </TouchableOpacity>
+              </View>
 
-          {/* Botón Flotante + Verde */}
-          <TouchableOpacity
-            style={styles.floatingGreenPlusBtn}
-            onPress={() => setPantalla('8_elegir_publicar')}
-            activeOpacity={0.85}
-          >
-            <Feather name="plus" size={26} color="#ffffff" />
-          </TouchableOpacity>
-
-          {/* PANTALLA 8 · OVERLAY ELEGIR "¿Qué quieres publicar?" */}
-          {pantalla === '8_elegir_publicar' && (
-            <View style={styles.bottomSheetBackdrop}>
-              <TouchableOpacity
-                style={{ flex: 1 }}
-                activeOpacity={1}
-                onPress={() => setPantalla('7_tablero')}
-              />
-              <View style={styles.bottomSheetCard}>
-                <View style={styles.sheetHandleBar} />
-
-                <View style={styles.sheetHeaderRow}>
-                  <Text style={styles.sheetTitleText}>¿Qué quieres publicar?</Text>
-                  <TouchableOpacity
-                    style={styles.circleIconBtn}
-                    onPress={() => setPantalla('7_tablero')}
-                    activeOpacity={0.75}
-                  >
-                    <Feather name="x" size={18} color="#1c1917" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.sheetTwoChoicesRow}>
-                  <TouchableOpacity
-                    style={styles.sheetChoiceBox}
-                    onPress={() => {
-                      setModoPublicar('necesito');
-                      setPantalla('9_que_publicar');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={[styles.sheetChoiceIconCircle, { backgroundColor: '#b43b1d' }]}>
-                      <MaterialCommunityIcons name="lifebuoy" size={26} color="#ffffff" />
+              <View style={styles.acopioCardsList}>
+                {puntosAcopio.map(pto => (
+                  <View key={pto.id} style={styles.acopioCard}>
+                    <View style={styles.acopioPinCircle}>
+                      <Feather name="map-pin" size={16} color="#b43b1d" />
                     </View>
-                    <Text style={styles.sheetChoiceLabel}>Necesito</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.sheetChoiceBox}
-                    onPress={() => {
-                      setModoPublicar('ayudar');
-                      setPantalla('9_que_publicar');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={[styles.sheetChoiceIconCircle, { backgroundColor: '#1d4f3c' }]}>
-                      <Feather name="heart" size={24} color="#ffffff" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.acopioCardName}>{pto.nombre}</Text>
+                      <Text style={styles.acopioCardDetail}>
+                        {pto.distancia} · {pto.detalle}
+                      </Text>
+                      <Text style={styles.acopioCardVerified}>{pto.verificado}</Text>
                     </View>
-                    <Text style={styles.sheetChoiceLabel}>Puedo ayudar</Text>
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                ))}
               </View>
             </View>
-          )}
+          </ScrollView>
+
+          {/* Barra Fija Inferior con los 2 Botones */}
+          <View style={styles.bottomActionsBarNew}>
+            <TouchableOpacity
+              style={styles.btnReportarNecesidad}
+              onPress={() => setModalAyuda('reportar')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnReportarNecesidadText}>Reportar necesidad</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.btnOfrecerAyuda}
+              onPress={() => setModalAyuda('ofrecer')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnOfrecerAyudaText}>Ofrecer ayuda</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ==================================================================== */}
+          {/* MODAL 1: REPORTAR NECESIDAD (Paso 1 de 3) */}
+          {/* ==================================================================== */}
+          <Modal
+            visible={modalAyuda === 'reportar'}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setModalAyuda('ninguno')}
+          >
+            <View style={styles.modalBackdrop}>
+              <View style={styles.modalSheetContainer}>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity
+                    style={styles.modalCloseBtn}
+                    onPress={() => setModalAyuda('ninguno')}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="x" size={18} color="#4b5563" />
+                  </TouchableOpacity>
+                  <Text style={styles.modalStepText}>Paso 1 de 3</Text>
+                </View>
+
+                {/* Barra de progreso 3 segmentos */}
+                <View style={styles.modalProgressBarRow}>
+                  <View style={[styles.modalProgressSegment, { backgroundColor: '#b43b1d' }]} />
+                  <View style={styles.modalProgressSegment} />
+                  <View style={styles.modalProgressSegment} />
+                </View>
+
+                {/* Badge e Identidad */}
+                <View style={styles.modalBadgeWrap}>
+                  <View style={[styles.modalPillBadge, { backgroundColor: '#b43b1d' }]}>
+                    <Text style={styles.modalPillBadgeText}>REPORTAR NECESIDAD</Text>
+                  </View>
+                  <Text style={styles.modalMainTitle}>¿Qué se necesita?</Text>
+                </View>
+
+                {/* Grilla 2 columnas con 8 opciones */}
+                <View style={styles.modalGrid2Cols}>
+                  {[
+                    { id: 'Agua', desc: 'Embotellada o bidones' },
+                    { id: 'Alimentos', desc: 'Víveres o comida lista' },
+                    { id: 'Abrigo', desc: 'Frazadas, ropa' },
+                    { id: 'Botiquín', desc: 'Primeros auxilios' },
+                    { id: 'Voluntarios', desc: 'Manos para ayudar' },
+                    { id: 'Transporte', desc: 'Llevar personas o cosas' },
+                    { id: 'Alojamiento', desc: 'Un lugar para dormir' },
+                    { id: 'Otro', desc: 'Algo distinto' },
+                  ].map(op => {
+                    const sel = seleccionReportar === op.id;
+                    return (
+                      <TouchableOpacity
+                        key={op.id}
+                        style={[styles.modalOptionCard, sel && styles.modalOptionCardSelectedRed]}
+                        onPress={() => setSeleccionReportar(op.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.modalOptionTitle}>{op.id}</Text>
+                        <Text style={styles.modalOptionDesc}>{op.desc}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#b43b1d' }]}
+                  onPress={() => {
+                    Alert.alert('Solicitud enviada', `Se reportó necesidad de ${seleccionReportar}.`);
+                    setModalAyuda('ninguno');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalSubmitBtnText}>Continuar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ==================================================================== */}
+          {/* MODAL 2: OFRECER AYUDA (Paso 1 de 3) */}
+          {/* ==================================================================== */}
+          <Modal
+            visible={modalAyuda === 'ofrecer'}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setModalAyuda('ninguno')}
+          >
+            <View style={styles.modalBackdrop}>
+              <View style={styles.modalSheetContainer}>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity
+                    style={styles.modalCloseBtn}
+                    onPress={() => setModalAyuda('ninguno')}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="x" size={18} color="#4b5563" />
+                  </TouchableOpacity>
+                  <Text style={styles.modalStepText}>Paso 1 de 3</Text>
+                </View>
+
+                {/* Barra de progreso 3 segmentos */}
+                <View style={styles.modalProgressBarRow}>
+                  <View style={[styles.modalProgressSegment, { backgroundColor: '#144e40' }]} />
+                  <View style={styles.modalProgressSegment} />
+                  <View style={styles.modalProgressSegment} />
+                </View>
+
+                {/* Badge e Identidad */}
+                <View style={styles.modalBadgeWrap}>
+                  <View style={[styles.modalPillBadge, { backgroundColor: '#144e40' }]}>
+                    <Text style={styles.modalPillBadgeText}>OFRECER AYUDA</Text>
+                  </View>
+                  <Text style={styles.modalMainTitle}>¿Qué puedes aportar?</Text>
+                </View>
+
+                {/* Grilla 2 columnas con 8 opciones y tags */}
+                <View style={styles.modalGrid2Cols}>
+                  {[
+                    { id: 'Agua', desc: 'Se necesita ahora', urgente: true },
+                    { id: 'Alimentos', desc: 'Sin pedidos activos', urgente: false },
+                    { id: 'Abrigo', desc: 'Se necesita ahora', urgente: true },
+                    { id: 'Botiquín', desc: 'Se necesita ahora', urgente: true },
+                    { id: 'Mi tiempo', desc: 'Se necesita ahora', urgente: true },
+                    { id: 'Transporte', desc: 'Sin pedidos activos', urgente: false },
+                    { id: 'Alojamiento', desc: 'Sin pedidos activos', urgente: false },
+                    { id: 'Otro', desc: 'Sin pedidos activos', urgente: false },
+                  ].map(op => {
+                    const sel = seleccionOfrecer === op.id;
+                    return (
+                      <TouchableOpacity
+                        key={op.id}
+                        style={[styles.modalOptionCard, sel && styles.modalOptionCardSelectedRed]}
+                        onPress={() => setSeleccionOfrecer(op.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.modalOptionTitle}>{op.id}</Text>
+                        <Text
+                          style={[
+                            styles.modalOptionDesc,
+                            { color: op.urgente ? '#b43b1d' : '#9ca3af' },
+                          ]}
+                        >
+                          {op.desc}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#144e40' }]}
+                  onPress={() => {
+                    Alert.alert('¡Aporte registrado!', `Gracias por ofrecer ${seleccionOfrecer}.`);
+                    setModalAyuda('ninguno');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalSubmitBtnText}>Continuar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ==================================================================== */}
+          {/* MODAL 3: PROPONER PUNTO DE ACOPIO (Paso 1 de 3) */}
+          {/* ==================================================================== */}
+          <Modal
+            visible={modalAyuda === 'proponer_acopio'}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setModalAyuda('ninguno')}
+          >
+            <View style={styles.modalBackdrop}>
+              <View style={styles.modalSheetContainer}>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity
+                    style={styles.modalCloseBtn}
+                    onPress={() => setModalAyuda('ninguno')}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="x" size={18} color="#4b5563" />
+                  </TouchableOpacity>
+                  <Text style={styles.modalStepText}>Paso 1 de 3</Text>
+                </View>
+
+                {/* Barra de progreso 3 segmentos */}
+                <View style={styles.modalProgressBarRow}>
+                  <View style={[styles.modalProgressSegment, { backgroundColor: '#b43b1d' }]} />
+                  <View style={styles.modalProgressSegment} />
+                  <View style={styles.modalProgressSegment} />
+                </View>
+
+                {/* Badge e Identidad */}
+                <View style={styles.modalBadgeWrap}>
+                  <View style={[styles.modalPillBadge, { backgroundColor: '#b43b1d' }]}>
+                    <Text style={styles.modalPillBadgeText}>PROPONER PUNTO DE ACOPIO</Text>
+                  </View>
+                  <Text style={styles.modalMainTitle}>¿Qué tipo de lugar es?</Text>
+                </View>
+
+                {/* Grilla 2 columnas con 6 lugares */}
+                <View style={styles.modalGrid2Cols}>
+                  {[
+                    { id: 'Local comunal', desc: 'Espacio del barrio' },
+                    { id: 'Parroquia o iglesia', desc: 'Con permiso del encargado' },
+                    { id: 'Colegio', desc: 'Con permiso de la dirección' },
+                    { id: 'Mi casa', desc: 'Si tienes espacio' },
+                    { id: 'Bodega o negocio', desc: 'Con permiso del dueño' },
+                    { id: 'Otro lugar', desc: 'Parque, cochera...' },
+                  ].map(op => {
+                    const sel = seleccionAcopio === op.id;
+                    return (
+                      <TouchableOpacity
+                        key={op.id}
+                        style={[styles.modalOptionCard, sel && styles.modalOptionCardSelectedRed]}
+                        onPress={() => setSeleccionAcopio(op.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.modalOptionTitle}>{op.id}</Text>
+                        <Text style={styles.modalOptionDesc}>{op.desc}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Nota de Responsabilidad */}
+                <View style={styles.modalInfoNoticeBox}>
+                  <Feather name="info" size={16} color="#6b7280" style={{ marginTop: 2 }} />
+                  <Text style={styles.modalInfoNoticeText}>
+                    Quien propone el punto queda como responsable. Debe ser un lugar al que los vecinos puedan llegar a pie.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#b43b1d' }]}
+                  onPress={() => {
+                    setPuntosAcopio(prev => [
+                      ...prev,
+                      {
+                        id: Date.now().toString(),
+                        nombre: `${seleccionAcopio} - Nuevo`,
+                        distancia: '450 m',
+                        detalle: 'Abierto para emergencias · Resp. Tú',
+                        verificado: 'Verificado por 1 vecino',
+                      },
+                    ]);
+                    setModalAyuda('ninguno');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalSubmitBtnText}>Continuar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
         </View>
       </SafeAreaView>
     );
@@ -1021,10 +1196,21 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
           contentContainerStyle={styles.directoryScrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Cabecera */}
-          <View style={styles.directoryHeader}>
-            <Text style={styles.directoryMainTitle}>Emergencia</Text>
-            <Text style={styles.directorySubZone}>{userQuadrant}</Text>
+          {/* Cabecera (Figma: Emergencias con botón circular de retroceso) */}
+          <View style={styles.directoryHeaderWithBack}>
+            <TouchableOpacity
+              style={styles.circularBackBtn}
+              onPress={() => {
+                if (onBack) onBack();
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="chevron-left" size={20} color="#111827" />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.directoryMainTitle}>Emergencias</Text>
+              <Text style={styles.directorySubZone}>{userQuadrant}</Text>
+            </View>
           </View>
 
           {/* Estado Aparte: Banner Sin Señal */}
@@ -1054,73 +1240,57 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
             </TouchableOpacity>
           )}
 
-          {/* Cuadrícula 2x2 de 4 Números de Emergencia en Verde Oscuro */}
+          {/* Cuadrícula 2x2 de 4 Números de Emergencia (Figma: Rojo Terracota, Negro Carbón, Blanco SAMU, Blanco Defensa Civil) */}
           <View style={styles.fourNumbersGrid}>
+            {/* 105 Policía Nacional - Rojo Terracota */}
             <TouchableOpacity
-              style={styles.greenNumberCard}
-              onPress={() => handleLlamar('105', 'Policía')}
+              style={styles.cardPoliciaRed}
+              onPress={() => handleLlamar('105', 'Policía Nacional')}
               activeOpacity={0.85}
             >
-              <View style={styles.greenCardTopRow}>
-                <Feather name="shield" size={22} color="#ffffff" />
-                <View style={styles.greenCardPhoneBadge}>
-                  <Feather name="phone" size={14} color="#ffffff" />
-                </View>
-              </View>
+              <Feather name="shield" size={24} color="#ffffff" />
               <View>
-                <Text style={styles.greenCardBigNumber}>105</Text>
-                <Text style={styles.greenCardLabel}>Policía</Text>
+                <Text style={styles.whiteCardBigNumber}>105</Text>
+                <Text style={styles.whiteCardLabel}>Policía Nacional</Text>
               </View>
             </TouchableOpacity>
 
+            {/* 116 Bomberos - Negro Carbón */}
             <TouchableOpacity
-              style={styles.greenNumberCard}
+              style={styles.cardBomberosBlack}
               onPress={() => handleLlamar('116', 'Bomberos')}
               activeOpacity={0.85}
             >
-              <View style={styles.greenCardTopRow}>
-                <MaterialCommunityIcons name="fire" size={24} color="#ffffff" />
-                <View style={styles.greenCardPhoneBadge}>
-                  <Feather name="phone" size={14} color="#ffffff" />
-                </View>
-              </View>
+              <MaterialCommunityIcons name="fire" size={26} color="#ffffff" />
               <View>
-                <Text style={styles.greenCardBigNumber}>116</Text>
-                <Text style={styles.greenCardLabel}>Bomberos</Text>
+                <Text style={styles.whiteCardBigNumber}>116</Text>
+                <Text style={styles.whiteCardLabel}>Bomberos</Text>
               </View>
             </TouchableOpacity>
 
+            {/* 106 SAMU - Blanco con Cruz Roja */}
             <TouchableOpacity
-              style={styles.greenNumberCard}
-              onPress={() => handleLlamar('106', 'SAMU')}
+              style={styles.cardSamuWhite}
+              onPress={() => handleLlamar('106', 'SAMU Ambulancia')}
               activeOpacity={0.85}
             >
-              <View style={styles.greenCardTopRow}>
-                <Feather name="plus-square" size={22} color="#ffffff" />
-                <View style={styles.greenCardPhoneBadge}>
-                  <Feather name="phone" size={14} color="#ffffff" />
-                </View>
-              </View>
+              <Feather name="plus" size={24} color="#b43b1d" />
               <View>
-                <Text style={styles.greenCardBigNumber}>106</Text>
-                <Text style={styles.greenCardLabel}>SAMU</Text>
+                <Text style={styles.darkCardBigNumber}>106</Text>
+                <Text style={styles.darkCardLabel}>SAMU ·{'\n'}Ambulancia</Text>
               </View>
             </TouchableOpacity>
 
+            {/* 115 Defensa Civil - Blanco con Pulso Rojo */}
             <TouchableOpacity
-              style={styles.greenNumberCard}
+              style={styles.cardDefensaWhite}
               onPress={() => handleLlamar('115', 'Defensa Civil')}
               activeOpacity={0.85}
             >
-              <View style={styles.greenCardTopRow}>
-                <Feather name="alert-triangle" size={22} color="#ffffff" />
-                <View style={styles.greenCardPhoneBadge}>
-                  <Feather name="phone" size={14} color="#ffffff" />
-                </View>
-              </View>
+              <MaterialCommunityIcons name="pulse" size={24} color="#b43b1d" />
               <View>
-                <Text style={styles.greenCardBigNumber}>115</Text>
-                <Text style={styles.greenCardLabel}>Defensa Civil</Text>
+                <Text style={styles.darkCardBigNumber}>115</Text>
+                <Text style={styles.darkCardLabel}>Defensa Civil</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -1149,6 +1319,46 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
               </>
             )}
           </TouchableOpacity>
+
+          {/* Sección: Puntos de acopio (Figma: Tarjeta unificada) */}
+          <View style={styles.acopioSection}>
+            <View style={styles.acopioHeaderRow}>
+              <Text style={styles.acopioSectionTitle}>Puntos de acopio</Text>
+              <TouchableOpacity
+                style={styles.proponerPuntoBtn}
+                onPress={() => {
+                  setPantalla('7_tablero');
+                  setModalAyuda('proponer_acopio');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.proponerPuntoText}>+ Proponer punto</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.acopioUnifiedCard}>
+              {puntosAcopio.map((pto, index) => (
+                <View
+                  key={pto.id}
+                  style={[
+                    styles.acopioCardRow,
+                    index > 0 && styles.acopioDividerTop,
+                  ]}
+                >
+                  <View style={styles.acopioPinCircle}>
+                    <Feather name="map-pin" size={15} color="#b43b1d" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.acopioCardName}>{pto.nombre}</Text>
+                    <Text style={styles.acopioCardDetail}>
+                      {pto.distancia} · {pto.detalle}
+                    </Text>
+                    <Text style={styles.acopioCardVerified}>{pto.verificado}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
 
           {/* Sección "Cerca de ti" + "Ver todos" */}
           <View style={styles.nearbyHeaderRow}>
@@ -2219,5 +2429,448 @@ const styles = StyleSheet.create({
   neighborsSeeItText: {
     fontSize: 13,
     color: '#78716c',
+  },
+  // Nuevos estilos Tablero de Ayuda Humanitaria (Figma)
+  tableroCleanHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eae5db',
+  },
+  tableroBackCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tableroCleanTitle: {
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  tableroZoneBadge: {
+    backgroundColor: '#fce8e0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  tableroZoneBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b43b1d',
+  },
+  tableroBodyScrollNew: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 110,
+    gap: 20,
+  },
+  tableroCardsListNew: {
+    gap: 12,
+  },
+  needCardNew: {
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#eae5db',
+    gap: 10,
+  },
+  needCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  needCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  needCardPriority: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  aportoPillBtn: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  aportoPillBtnActive: {
+    backgroundColor: '#1f6f4a',
+  },
+  aportoPillBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  needProgressTrack: {
+    height: 8,
+    backgroundColor: '#eae5db',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  needProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  needProgressCount: {
+    fontSize: 11.5,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  acopioSection: {
+    gap: 12,
+  },
+  acopioHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  acopioSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  proponerPuntoBtn: {
+    backgroundColor: '#fce8e0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  proponerPuntoText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b43b1d',
+  },
+  acopioCardsList: {
+    gap: 10,
+  },
+  acopioCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#eae5db',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  acopioPinCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#fce8e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  acopioCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  acopioCardDetail: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  acopioCardVerified: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f6f4a',
+    marginTop: 4,
+  },
+  bottomActionsBarNew: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#f7f5ef',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#eae5db',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  btnReportarNecesidad: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#b43b1d',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnReportarNecesidadText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#b43b1d',
+  },
+  btnOfrecerAyuda: {
+    flex: 1,
+    backgroundColor: '#144e40',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnOfrecerAyudaText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  // Estilos Modales
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheetContainer: {
+    backgroundColor: '#f7f5ef',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+    maxHeight: '92%',
+    gap: 14,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalStepText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  modalProgressBarRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalProgressSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e0d4',
+  },
+  modalBadgeWrap: {
+    gap: 6,
+  },
+  modalPillBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  modalPillBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  modalMainTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  modalGrid2Cols: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  modalOptionCard: {
+    width: '48.5%',
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  modalOptionCardSelectedRed: {
+    borderColor: '#b43b1d',
+    borderWidth: 2,
+  },
+  modalOptionTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalOptionDesc: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  modalInfoNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  modalInfoNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#4b5563',
+    lineHeight: 16,
+  },
+  modalSubmitBtn: {
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  modalSubmitBtnText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  // Estilos Cuadros de Emergencia y Puntos de Acopio Unificados (Figma)
+  directoryHeaderWithBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  circularBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#eae5db',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardPoliciaRed: {
+    flex: 1,
+    backgroundColor: '#b43b1d',
+    borderRadius: 24,
+    padding: 16,
+    height: 130,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardBomberosBlack: {
+    flex: 1,
+    backgroundColor: '#1c1917',
+    borderRadius: 24,
+    padding: 16,
+    height: 130,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardSamuWhite: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 16,
+    height: 130,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#eae5db',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardDefensaWhite: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 16,
+    height: 130,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#eae5db',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  whiteCardBigNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.5,
+  },
+  whiteCardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginTop: 2,
+  },
+  darkCardBigNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1c1917',
+    letterSpacing: -0.5,
+  },
+  darkCardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  acopioUnifiedCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#eae5db',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  acopioCardRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    gap: 12,
+  },
+  acopioDividerTop: {
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
   },
 });
