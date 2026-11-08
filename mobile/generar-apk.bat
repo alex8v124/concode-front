@@ -4,13 +4,15 @@ echo =======================================================
 echo   Ayudar Trazable - Generador de APK para Android
 echo =======================================================
 echo.
-echo 1. Generar APK en la nube con EAS Build (Recomendado, no requiere Android Studio)
-echo 2. Generar APK local con Gradle (Requiere tener instalado Android Studio / SDK)
+echo 1. Generar APK en la nube con EAS Build
+echo 2. Crear cuenta NUEVA en Expo (si nunca te has registrado)
+echo 3. Compilacion local con Gradle (Requiere Android Studio)
 echo.
-set /p opt="Elige una opcion (1 o 2): "
+set /p opt="Elige una opcion (1, 2 o 3): "
 
 if "%opt%"=="1" goto opt1
 if "%opt%"=="2" goto opt2
+if "%opt%"=="3" goto opt3
 goto invalid
 
 :opt1
@@ -18,13 +20,20 @@ echo.
 echo =======================================================
 echo   Iniciando compilacion de instalador APK con EAS Build
 echo =======================================================
-echo Si aun no tienes cuenta de Expo (es 100%% gratuita),
-echo ingresa tu email para crearla o acceder.
 echo.
 call npx eas-cli build -p android --profile preview
 goto end
 
 :opt2
+echo.
+echo =======================================================
+echo   Registro de Cuenta Nueva en Expo (100%% Gratuito)
+echo =======================================================
+echo.
+call npx eas-cli register
+goto end
+
+:opt3
 echo.
 echo =======================================================
 echo   Iniciando compilacion local con Gradle
@@ -51,7 +60,7 @@ cd ..
 goto end
 
 :invalid
-echo Opcion invalida. Por favor ingresa 1 o 2.
+echo Opcion invalida. Por favor ingresa 1, 2 o 3.
 
 :end
 pause
