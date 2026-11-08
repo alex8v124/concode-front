@@ -22,7 +22,7 @@ export interface DniEscaneado {
   age: string;
   gender: string;
   fechaNacimiento: string;
-  // true si RENIEC (via backend) confirmo los datos; false si solo se leyeron del DNI
+  // true si RENIEC (vía backend) confirmó los datos; false si solo se leyeron del DNI
   verificado: boolean;
 }
 
@@ -32,11 +32,10 @@ interface DniCameraScannerProps {
   onScanSuccess: (data: DniEscaneado) => void;
   onScanError: () => void;
   title?: string;
-  // En login solo se necesita el numero: no se abre un tramite de alta en el backend
   validarConBackend?: boolean;
 }
 
-type Estado = 'buscando' | 'confirmando' | 'validando' | 'error';
+type Estado = 'buscando' | 'validando' | 'error';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH - 40, 340);
@@ -52,15 +51,18 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const activoRef = useRef(false);
+  const procesandoRef = useRef(false);
 
   const [camaraLista, setCamaraLista] = useState(false);
   const [torch, setTorch] = useState(false);
-  const [capturando, setCapturando] = useState(false);
   const [estado, setEstado] = useState<Estado>('buscando');
   const [mensajeError, setMensajeError] = useState('');
+  const [sesion, setSesion] = useState(0);
 
   const laser = useRef(new Animated.Value(0)).current;
 
+  // Animación del escáner láser
   useEffect(() => {
     if (!visible) return;
     const loop = Animated.loop(
@@ -76,47 +78,59 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
   useEffect(() => {
     if (!visible) {
       setCamaraLista(false);
-      setCapturando(false);
       setEstado('buscando');
       setMensajeError('');
+      activoRef.current = false;
+      procesandoRef.current = false;
     }
   }, [visible]);
 
-  // Captura bajo demanda SIN flasheo continuo
-  // Se toma una sola foto nítida al pulsar el botón, protegiendo a usuarios con sensibilidad visual
-  const ejecutarCaptura = async () => {
-    if (!cameraRef.current || capturando || estado === 'validando') return;
-    setCapturando(true);
-    setEstado('confirmando');
-    setMensajeError('');
+  // Detección 100% AUTOMÁTICA y fluida
+  // Intervalo optimizado (1100ms) y compresión baja para no reiniciar la exposición de la cámara
+  useEffect(() => {
+    if (!visible || !permission?.granted || !camaraLista) return;
+    activoRef.current = true;
+    let timer: ReturnType<typeof setTimeout>;
 
-    try {
-      const foto = await cameraRef.current.takePictureAsync({
-        quality: 0.85,
-        skipProcessing: true,
-      });
+    const cicloAuto = async () => {
+      if (!activoRef.current || procesandoRef.current) return;
+      try {
+        procesandoRef.current = true;
+        // quality 0.35 para lectura instantánea sin bloqueo de hardware
+        const foto = await cameraRef.current?.takePictureAsync({
+          quality: 0.35,
+          skipProcessing: true,
+        });
 
-      if (foto?.uri) {
-        const resultado = await TextRecognition.recognize(foto.uri);
-        const datos = leerMrz(resultado.text);
+        if (foto?.uri && activoRef.current) {
+          const resultado = await TextRecognition.recognize(foto.uri);
+          const datos = leerMrz(resultado.text);
 
-        if (datos && datos.dni) {
-          await finalizar(datos);
-          return;
+          if (datos && datos.dni && activoRef.current) {
+            activoRef.current = false;
+            await finalizar(datos);
+            return;
+          }
         }
-
-        // Si no se pudo leer la zona MRZ
-        setMensajeError('No se leyeron las 3 líneas con «<<<». Asegúrate de enfocar bien el reverso con buena luz y sin reflejos.');
-        setEstado('error');
+      } catch (e) {
+        console.warn('Error en escaneo automático de fotograma:', e);
+      } finally {
+        procesandoRef.current = false;
       }
-    } catch (e) {
-      console.warn('Error en captura de DNI:', e);
-      setMensajeError('Ocurrió un error al tomar la captura. Intenta nuevamente.');
-      setEstado('error');
-    } finally {
-      setCapturando(false);
-    }
-  };
+
+      if (activoRef.current) {
+        timer = setTimeout(cicloAuto, 1100);
+      }
+    };
+
+    // Breve pausa inicial para que la cámara enfoque con naturalidad
+    timer = setTimeout(cicloAuto, 700);
+
+    return () => {
+      activoRef.current = false;
+      clearTimeout(timer);
+    };
+  }, [visible, permission?.granted, camaraLista, sesion]);
 
   const finalizar = async (mrz: DatosMrz) => {
     setEstado('validando');
@@ -176,7 +190,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
         onClose();
         return;
       }
-      setMensajeError(e instanceof ErrorApi ? e.message : 'No pudimos validar tu DNI. Intenta nuevamente.');
+      setMensajeError(e instanceof ErrorApi ? e.message : 'No pudimos validar este DNI. Intenta nuevamente.');
       setEstado('error');
     }
   };
@@ -184,16 +198,16 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
   const reintentar = () => {
     setMensajeError('');
     setEstado('buscando');
+    setSesion(s => s + 1);
   };
 
   const translateY = laser.interpolate({ inputRange: [0, 1], outputRange: [8, CARD_HEIGHT - 10] });
-  const enfocado = estado === 'confirmando' || estado === 'validando';
+  const enfocado = estado === 'validando';
 
   const textoEstado: Record<Estado, string> = {
-    buscando: 'Apunta al reverso del DNI y presiona Escanear',
-    confirmando: 'Analizando caracteres del DNI...',
-    validando: validarConBackend ? 'Validando con RENIEC...' : 'DNI leído correctamente',
-    error: 'No se pudo leer el DNI',
+    buscando: 'Buscando el reverso del DNI automáticamente...',
+    validando: validarConBackend ? '¡DNI detectado! Validando con RENIEC...' : '¡DNI detectado!',
+    error: 'No pudimos validar este DNI',
   };
 
   return (
@@ -204,7 +218,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
             <Text style={styles.permissionEmoji}>📷</Text>
             <Text style={styles.permissionTitle}>Necesitamos tu cámara</Text>
             <Text style={styles.permissionText}>
-              La usamos solo para leer tu DNI. La lectura se hace en tu teléfono y no guardamos fotos.
+              La usamos solo para leer tu DNI automáticamente. No guardamos fotos.
             </Text>
             <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
               <Text style={styles.permissionBtnText}>Permitir cámara</Text>
@@ -257,7 +271,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
                     <Animated.View style={[styles.laser, enfocado && styles.laserOk, { transform: [{ translateY }] }]} />
                   )}
 
-                  {(estado === 'validando' || capturando) && (
+                  {estado === 'validando' && (
                     <View style={styles.processing}>
                       <ActivityIndicator size="large" color="#10b981" />
                       <Text style={styles.processingText}>{textoEstado[estado]}</Text>
@@ -279,44 +293,17 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
                   <>
                     <Text style={styles.errorText}>{mensajeError}</Text>
                     <TouchableOpacity style={styles.primaryBtn} onPress={reintentar}>
-                      <Text style={styles.primaryBtnText}>Reintentar captura</Text>
+                      <Text style={styles.primaryBtnText}>Volver a escanear</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.linkBtn}
-                      onPress={() => {
-                        onClose();
-                        onScanError();
-                      }}
-                    >
-                      <Text style={styles.linkBtnText}>Ingresar datos manualmente</Text>
+                    <TouchableOpacity style={styles.linkBtn} onPress={onClose}>
+                      <Text style={styles.linkBtnText}>Cerrar</Text>
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <>
-                    {/* Botón táctil ergonómico para disparar la captura sin parpadeos */}
-                    <TouchableOpacity
-                      style={[styles.captureBtn, (!camaraLista || capturando) && styles.captureBtnDisabled]}
-                      onPress={ejecutarCaptura}
-                      disabled={!camaraLista || capturando || estado === 'validando'}
-                      activeOpacity={0.8}
-                    >
-                      {capturando ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={styles.captureBtnText}>📸 Escanear DNI</Text>
-                      )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.linkBtn}
-                      onPress={() => {
-                        onClose();
-                        onScanError();
-                      }}
-                    >
-                      <Text style={styles.linkBtnText}>¿Prefieres no usar la cámara? Ingresar a mano</Text>
-                    </TouchableOpacity>
-                  </>
+                  <View style={styles.autoBadge}>
+                    <View style={styles.dot} />
+                    <Text style={styles.autoText}>Captura automática activada</Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -376,32 +363,23 @@ const styles = StyleSheet.create({
   statusPillError: { borderColor: '#ef4444', backgroundColor: 'rgba(127,29,29,0.85)' },
   statusText: { color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   subHint: { color: '#d1d5db', fontSize: 11, marginTop: 8, textAlign: 'center' },
-  bottomBar: { alignItems: 'center', gap: 12, width: '100%' },
-  captureBtn: {
-    backgroundColor: '#144e40',
-    paddingVertical: 15,
-    borderRadius: 24,
-    width: '100%',
+  bottomBar: { alignItems: 'center', gap: 10, width: '100%' },
+  autoBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    gap: 8,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.4)',
   },
-  captureBtnDisabled: {
-    opacity: 0.6,
-  },
-  captureBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: VERDE },
+  autoText: { color: '#34d399', fontSize: 12, fontWeight: '700' },
   errorText: { color: '#fecaca', fontSize: 13, fontWeight: '600', textAlign: 'center' },
   primaryBtn: { backgroundColor: '#144e40', paddingVertical: 14, borderRadius: 14, width: '100%', alignItems: 'center' },
   primaryBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  linkBtn: { paddingVertical: 6 },
-  linkBtnText: { color: 'rgba(255,255,255,0.75)', fontSize: 12, textDecorationLine: 'underline', textAlign: 'center' },
+  linkBtn: { paddingVertical: 8 },
+  linkBtnText: { color: 'rgba(255,255,255,0.75)', fontSize: 12, textAlign: 'center' },
 });
