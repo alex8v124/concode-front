@@ -8,28 +8,9 @@ import {
   TextInput, 
   Modal, 
   Alert,
-  Dimensions,
   Platform
 } from 'react-native';
-import { 
-  MapPin, 
-  ChevronDown, 
-  MessageSquare, 
-  Wrench, 
-  Heart, 
-  Search, 
-  ThumbsUp, 
-  Star, 
-  Plus, 
-  Home, 
-  Map as MapIcon, 
-  TriangleAlert, 
-  List, 
-  User,
-  X,
-  PhoneCall,
-  ShieldAlert
-} from 'lucide-react-native';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { mobileApiService } from '../services/api';
 
 interface Props {
@@ -171,7 +152,6 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         'Se notificó a los vecinos y al coordinador de tu cuadrante en tiempo real.'
       );
     } catch (e) {
-      // Simulado o error
       setPanicoEnviado(true);
       Alert.alert('Alerta SOS', 'Alerta comunitaria transmitida a tu sector vecinal.');
     } finally {
@@ -188,14 +168,14 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           <View>
             <Text style={styles.tuZonaLabel}>Tu zona</Text>
             <TouchableOpacity style={styles.zonaSelector} activeOpacity={0.7}>
-              <MapPin size={17} color="#144e40" strokeWidth={2.2} />
+              <Feather name="map-pin" size={17} color="#144e40" />
               <Text style={styles.zonaText} numberOfLines={1}>{cuadranteMostrado}</Text>
-              <ChevronDown size={17} color="#144e40" strokeWidth={2.2} />
+              <Feather name="chevron-down" size={17} color="#144e40" />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.chatButton} activeOpacity={0.85}>
-            <MessageSquare size={19} color="#ffffff" strokeWidth={2.2} />
+            <Feather name="message-square" size={19} color="#ffffff" />
             <View style={styles.chatBadge}>
               <Text style={styles.chatBadgeText}>3</Text>
             </View>
@@ -211,10 +191,10 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             onPress={() => setCategoriaActiva('servicios')}
             activeOpacity={0.85}
           >
-            <Wrench 
+            <MaterialCommunityIcons 
+              name="wrench" 
               size={22} 
               color={categoriaActiva === 'servicios' ? '#ffffff' : '#144e40'} 
-              strokeWidth={2.2} 
             />
             <Text style={[styles.categoryTitle, categoriaActiva === 'servicios' ? styles.titleActive : styles.titleInactive]}>
               Servicios
@@ -230,10 +210,10 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             onPress={() => setCategoriaActiva('favores')}
             activeOpacity={0.85}
           >
-            <Heart 
+            <Feather 
+              name="heart" 
               size={22} 
               color={categoriaActiva === 'favores' ? '#ffffff' : '#1f2937'} 
-              strokeWidth={2.2} 
             />
             <Text style={[styles.categoryTitle, categoriaActiva === 'favores' ? styles.titleActive : styles.titleInactive]}>
               Favores
@@ -246,7 +226,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
         {/* Barra de Búsqueda */}
         <View style={styles.searchBar}>
-          <Search size={18} color="#9ca3af" strokeWidth={2} />
+          <Feather name="search" size={18} color="#9ca3af" />
           <TextInput 
             style={styles.searchInput}
             placeholder="Busca gasfitero, profesor de inglés..."
@@ -264,7 +244,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           </View>
 
           <View style={styles.distanceBadge}>
-            <MapPin size={12} color="#144e40" strokeWidth={2.2} />
+            <Feather name="map-pin" size={12} color="#144e40" />
             <Text style={styles.distanceBadgeText}>1 km</Text>
           </View>
         </View>
@@ -298,12 +278,12 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
                 <View style={styles.itemMetaRow}>
                   <View style={styles.reputationBadge}>
-                    <ThumbsUp size={12} color="#144e40" strokeWidth={2} />
+                    <Feather name="thumbs-up" size={12} color="#144e40" />
                     <Text style={styles.reputationText}>{item.vistosBuenos} vistos buenos</Text>
                   </View>
 
                   <View style={styles.ratingBadge}>
-                    <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                    <Ionicons name="star" size={12} color="#f59e0b" />
                     <Text style={styles.ratingText}>{item.calificacion.toFixed(1)}</Text>
                   </View>
                 </View>
@@ -321,7 +301,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         activeOpacity={0.85}
         onPress={() => setModalPublicarVisible(true)}
       >
-        <Plus size={18} color="#ffffff" strokeWidth={2.8} />
+        <Feather name="plus" size={18} color="#ffffff" />
         <Text style={styles.fabBtnText}>Publicar</Text>
       </TouchableOpacity>
 
@@ -334,7 +314,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           onPress={() => setTabActiva('inicio')}
           activeOpacity={0.7}
         >
-          <Home size={22} color={tabActiva === 'inicio' ? '#144e40' : '#6b7280'} strokeWidth={tabActiva === 'inicio' ? 2.5 : 1.8} />
+          <Feather name="home" size={22} color={tabActiva === 'inicio' ? '#144e40' : '#6b7280'} />
           <Text style={[styles.navLabel, tabActiva === 'inicio' && styles.navLabelActive]}>Inicio</Text>
         </TouchableOpacity>
 
@@ -347,7 +327,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           }}
           activeOpacity={0.7}
         >
-          <MapIcon size={22} color={tabActiva === 'mapa' ? '#144e40' : '#6b7280'} strokeWidth={tabActiva === 'mapa' ? 2.5 : 1.8} />
+          <Feather name="map" size={22} color={tabActiva === 'mapa' ? '#144e40' : '#6b7280'} />
           <Text style={[styles.navLabel, tabActiva === 'mapa' && styles.navLabelActive]}>Mapa</Text>
         </TouchableOpacity>
 
@@ -358,7 +338,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           activeOpacity={0.85}
         >
           <View style={styles.sosButtonCircle}>
-            <TriangleAlert size={26} color="#ffffff" strokeWidth={2.4} />
+            <Ionicons name="warning" size={26} color="#ffffff" />
           </View>
           <Text style={styles.emergencyNavLabel}>Emergencia</Text>
         </TouchableOpacity>
@@ -372,7 +352,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           }}
           activeOpacity={0.7}
         >
-          <List size={22} color={tabActiva === 'actividad' ? '#144e40' : '#6b7280'} strokeWidth={tabActiva === 'actividad' ? 2.5 : 1.8} />
+          <Feather name="list" size={22} color={tabActiva === 'actividad' ? '#144e40' : '#6b7280'} />
           <Text style={[styles.navLabel, tabActiva === 'actividad' && styles.navLabelActive]}>Actividad</Text>
         </TouchableOpacity>
 
@@ -382,7 +362,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           onPress={() => setModalPerfilVisible(true)}
           activeOpacity={0.7}
         >
-          <User size={22} color={tabActiva === 'perfil' ? '#144e40' : '#6b7280'} strokeWidth={tabActiva === 'perfil' ? 2.5 : 1.8} />
+          <Feather name="user" size={22} color={tabActiva === 'perfil' ? '#144e40' : '#6b7280'} />
           <Text style={[styles.navLabel, tabActiva === 'perfil' && styles.navLabelActive]}>Perfil</Text>
         </TouchableOpacity>
       </View>
@@ -392,10 +372,10 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <ShieldAlert size={28} color="#b93815" />
+              <MaterialCommunityIcons name="shield-alert" size={28} color="#b93815" />
               <Text style={styles.modalTitle}>Botón de Pánico Vecinal</Text>
               <TouchableOpacity onPress={() => setModalPanicoVisible(false)}>
-                <X size={20} color="#6b7280" />
+                <Feather name="x" size={20} color="#6b7280" />
               </TouchableOpacity>
             </View>
 
@@ -415,11 +395,11 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
             <View style={styles.emergencyDirectCalls}>
               <TouchableOpacity style={styles.callSerenazgoBtn} onPress={() => Alert.alert('Llamando', 'Conectando con la Central de Serenazgo')}>
-                <PhoneCall size={16} color="#144e40" />
+                <Feather name="phone-call" size={16} color="#144e40" />
                 <Text style={styles.callSerenazgoText}>Llamar Serenazgo</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.callPoliceBtn} onPress={() => Alert.alert('Llamando', 'Marcando al 105 Policía Nacional')}>
-                <PhoneCall size={16} color="#b93815" />
+                <Feather name="phone-call" size={16} color="#b93815" />
                 <Text style={styles.callPoliceText}>Central 105</Text>
               </TouchableOpacity>
             </View>
@@ -434,7 +414,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Publicar en tu Barrio</Text>
               <TouchableOpacity onPress={() => setModalPublicarVisible(false)}>
-                <X size={20} color="#6b7280" />
+                <Feather name="x" size={20} color="#6b7280" />
               </TouchableOpacity>
             </View>
             <Text style={styles.modalDesc}>
@@ -465,7 +445,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Mi Perfil Vecinal</Text>
               <TouchableOpacity onPress={() => setModalPerfilVisible(false)}>
-                <X size={20} color="#6b7280" />
+                <Feather name="x" size={20} color="#6b7280" />
               </TouchableOpacity>
             </View>
 
