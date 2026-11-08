@@ -7,6 +7,14 @@ let tokenTramiteActual: string | null = null;
 let tokenAccesoActual: string | null = null;
 let tokenRenovacionActual: string | null = null;
 
+export class ErrorApi extends Error {
+  codigo: string;
+  constructor(codigo: string, mensaje: string) {
+    super(mensaje);
+    this.codigo = codigo;
+  }
+}
+
 export interface CuadranteInfo {
   id?: string;
   codigo?: string;
@@ -49,62 +57,30 @@ export const apiService = {
   // ==========================================
 
   // POST /api/v1/auth/dni
-  async scanDni(simulateError: boolean = false, dniInput?: string, fechaNacimiento?: string, sexo?: string) {
-    const dni = dniInput || '71234567';
-    const fecha = fechaNacimiento || '1985-07-02';
-    const s = sexo || 'M';
-
-    if (simulateError) {
-      throw new Error('No pudimos leer tu DNI. La imagen está borrosa o tiene reflejos.');
-    }
-
+  // Devuelve los datos verificados por RENIEC, null si el backend no es alcanzable,
+  // o lanza ErrorApi si el backend rechaza el DNI (no encontrado, menor de edad, etc.).
+  async validarDni(dni: string, origen: 'ESCANEO' | 'MANUAL', fechaNacimiento: string, sexo: 'M' | 'F') {
+    let res: Response;
     try {
-      const res = await fetch(`${API_BASE}/auth/dni`, {
+      res = await fetch(`${API_BASE}/auth/dni`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dni,
-          origen: dniInput ? 'MANUAL' : 'ESCANEO',
-          fechaNacimiento: fecha,
-          sexo: s
-        })
+        body: JSON.stringify({ dni, origen, fechaNacimiento, sexo })
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.tokenTramite) {
-          tokenTramiteActual = data.tokenTramite;
-        }
-        return {
-          success: true,
-          tokenTramite: data.tokenTramite,
-          data: {
-            dni: data.datos?.dni || dni,
-            firstName: data.datos?.nombres || 'Juan Carlos',
-            lastName: `${data.datos?.apellidoPaterno || 'Pérez'} ${data.datos?.apellidoMaterno || 'Soto'}`.trim(),
-            age: data.datos?.edad || 41,
-            gender: data.datos?.sexo === 'F' ? 'Femenino' : 'Masculino',
-            readStatus: 'DNI verificado con éxito'
-          }
-        };
-      }
     } catch (err) {
-      console.warn('Backend offline o error de red, usando fallback simulado:', err);
+      console.warn('Backend no alcanzable al validar DNI:', err);
+      return null;
     }
 
-    // Fallback garantizado para desarrollo si el backend está reiniciando
-    tokenTramiteActual = tokenTramiteActual || 'mock-tramite-token-12345';
-    return {
-      success: true,
-      tokenTramite: tokenTramiteActual,
-      data: {
-        dni,
-        firstName: 'Juan Carlos',
-        lastName: 'Pérez Soto',
-        age: 41,
-        gender: 'Masculino',
-        readStatus: 'DNI verificado'
-      }
+    const cuerpo = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new ErrorApi(cuerpo.codigo || 'ERROR', cuerpo.mensaje || 'No pudimos validar tu DNI. Intenta nuevamente.');
+    }
+    if (cuerpo.tokenTramite) tokenTramiteActual = cuerpo.tokenTramite;
+    return cuerpo as {
+      tokenTramite: string;
+      venceEn: string;
+      datos: { dni: string; nombres: string; apellidoPaterno: string; apellidoMaterno: string; edad: number; sexo: string; verificado: boolean };
     };
   },
 

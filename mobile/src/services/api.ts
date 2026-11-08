@@ -6,6 +6,12 @@ let tokenTramiteActual: string | null = null;
 let tokenAccesoActual: string | null = null;
 let tokenRenovacionActual: string | null = null;
 
+export class ErrorApi extends Error {
+  constructor(public codigo: string, mensaje: string) {
+    super(mensaje);
+  }
+}
+
 export const mobileApiService = {
   // Manejo de tokens
   getTramiteToken(): string | null {
@@ -32,44 +38,30 @@ export const mobileApiService = {
   // ==========================================
 
   // POST /api/v1/auth/dni
-  async validarDni(dni: string, origen: 'ESCANEO' | 'MANUAL' = 'ESCANEO', fechaNacimiento: string = '1985-07-02', sexo: string = 'M') {
+  // Devuelve los datos verificados por RENIEC, null si el backend no es alcanzable,
+  // o lanza ErrorApi si el backend rechaza el DNI (no encontrado, menor de edad, etc.).
+  async validarDni(dni: string, origen: 'ESCANEO' | 'MANUAL', fechaNacimiento: string, sexo: 'M' | 'F') {
+    let res: Response;
     try {
-      const res = await fetch(`${API_BASE}/auth/dni`, {
+      res = await fetch(`${API_BASE}/auth/dni`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dni, origen, fechaNacimiento, sexo })
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.tokenTramite) tokenTramiteActual = data.tokenTramite;
-        return {
-          success: true,
-          tokenTramite: data.tokenTramite,
-          datos: data.datos || {
-            dni,
-            nombres: 'Juan Carlos',
-            apellidoPaterno: 'Pérez',
-            apellidoMaterno: 'Soto',
-            edad: 41,
-            sexo: 'M'
-          }
-        };
-      }
     } catch (e) {
-      console.warn('API backend no alcanzable, usando respuesta local simulada:', e);
+      console.warn('Backend no alcanzable al validar DNI:', e);
+      return null;
     }
-    tokenTramiteActual = tokenTramiteActual || 'mock-tramite-token';
-    return {
-      success: true,
-      tokenTramite: tokenTramiteActual,
-      datos: {
-        dni,
-        nombres: 'Juan Carlos',
-        apellidoPaterno: 'Pérez',
-        apellidoMaterno: 'Soto',
-        edad: 41,
-        sexo: 'M'
-      }
+
+    const cuerpo = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new ErrorApi(cuerpo.codigo || 'ERROR', cuerpo.mensaje || 'No pudimos validar tu DNI. Intenta nuevamente.');
+    }
+    if (cuerpo.tokenTramite) tokenTramiteActual = cuerpo.tokenTramite;
+    return cuerpo as {
+      tokenTramite: string;
+      venceEn: string;
+      datos: { dni: string; nombres: string; apellidoPaterno: string; apellidoMaterno: string; edad: number; sexo: string; verificado: boolean };
     };
   },
 

@@ -71,6 +71,7 @@ export const LoginScreen: React.FC<Props> = ({ onBack, onContinue, onScanError, 
       {/* Modal de Cámara para Escanear DNI */}
       <DniCameraScanner
         visible={isScannerOpen}
+        validarConBackend={false}
         onClose={() => setIsScannerOpen(false)}
         onScanSuccess={(data) => {
           setScannedDni(data.dni);
