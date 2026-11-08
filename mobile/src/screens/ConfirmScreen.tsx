@@ -1,5 +1,10 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import {
+  formatearCelularAlEscribir,
+  esCelularPeruValido,
+  limpiarDigitosCelularPeru,
+} from '../utils/phone';
 
 interface Props {
   userData: {
@@ -8,13 +13,39 @@ interface Props {
     age: string;
     gender: string;
     dni: string;
+    phone?: string;
     address: string;
   };
+  onUpdatePhone?: (phone: string) => void;
   onBack: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
 }
 
-export const ConfirmScreen: React.FC<Props> = ({ userData, onBack, onConfirm }) => {
+export const ConfirmScreen: React.FC<Props> = ({ userData, onUpdatePhone, onBack, onConfirm }) => {
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const formattedPhone = formatearCelularAlEscribir(userData.phone || '987654321');
+  const phoneValid = esCelularPeruValido(userData.phone || '987654321');
+
+  const handlePhoneChange = (text: string) => {
+    setErrorMessage('');
+    const clean = limpiarDigitosCelularPeru(text);
+    onUpdatePhone?.(clean);
+  };
+
+  const handleConfirmPress = async () => {
+    if (!phoneValid || isSubmitting) return;
+    setIsSubmitting(true);
+    setErrorMessage('');
+    try {
+      await onConfirm();
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Este número de celular ya está registrado en otra cuenta.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View>
@@ -85,17 +116,50 @@ export const ConfirmScreen: React.FC<Props> = ({ userData, onBack, onConfirm }) 
               <Text style={styles.filledText}>{userData.dni}</Text>
             </View>
           </View>
+
+          <View style={styles.field}>
+            <View style={styles.fieldHeader}>
+              <Text style={styles.label}>Número de celular (recibirás código SMS)</Text>
+              <Text style={styles.badge}>+51 Perú</Text>
+            </View>
+            <View style={styles.phoneInputRow}>
+              <View style={styles.prefixBox}>
+                <Text style={styles.prefixText}>+51</Text>
+              </View>
+              <TextInput
+                style={styles.phoneInput}
+                value={formattedPhone}
+                onChangeText={handlePhoneChange}
+                keyboardType="phone-pad"
+                maxLength={11}
+                placeholder="987 654 321"
+                placeholderTextColor="#9ca3af"
+              />
+            </View>
+          </View>
         </View>
       </View>
 
       <View style={styles.bottomSection}>
+        {!!errorMessage && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
         <View style={styles.savedDomicilioBtn}>
           <Text style={styles.savedDomicilioText}>📍 Domicilio guardado</Text>
         </View>
 
         {/* Botón Registrar amarillo resaltado (Figma 5) */}
-        <TouchableOpacity style={styles.registerYellowBtn} onPress={onConfirm} activeOpacity={0.85}>
-          <Text style={styles.registerYellowText}>Registrar</Text>
+        <TouchableOpacity
+          style={[styles.registerYellowBtn, (!phoneValid || isSubmitting) && styles.btnDisabled]}
+          onPress={handleConfirmPress}
+          disabled={!phoneValid || isSubmitting}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.registerYellowText}>
+            {isSubmitting ? 'Validando y enviando código...' : 'Registrar y enviar código'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -227,6 +291,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#141c18',
   },
+  phoneInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  prefixBox: {
+    width: 52,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d5dbd3',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prefixText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#141c18',
+  },
+  phoneInput: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d5dbd3',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#141c18',
+  },
   bottomSection: {
     gap: 10,
     paddingTop: 16,
@@ -250,9 +344,25 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
   },
+  btnDisabled: {
+    opacity: 0.5,
+  },
   registerYellowText: {
     color: '#141c18',
     fontSize: 15,
     fontWeight: '700',
+  },
+  errorBox: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  errorText: {
+    color: '#b91c1c',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

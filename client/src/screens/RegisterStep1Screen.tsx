@@ -1,5 +1,6 @@
 import React from 'react';
 import type { UserFormData } from '../types';
+import { X, Lock, Check, Maximize2, ArrowRight } from 'lucide-react';
 
 interface RegisterStep1ScreenProps {
   onBack: () => void;
@@ -16,217 +17,132 @@ export const RegisterStep1Screen: React.FC<RegisterStep1ScreenProps> = ({
   onOpenScanner,
   onActivateMap,
 }) => {
-  // Los campos de datos sólo aparecen después del escaneo y deben ser no editables
   const isScanned = Boolean(formData.dniVerified && formData.firstName);
 
   return (
-    <div className="flex flex-col justify-between h-full px-6 py-6 bg-surface-bg select-none overflow-y-auto">
-      {/* Contenido Superior */}
-      <div className="flex flex-col">
-        {/* Enlace Atrás */}
-        <button
-          onClick={onBack}
-          className="self-start text-[13px] font-medium text-ink-primary hover:text-brand-800 mb-2 -ml-0.5 py-0.5 transition cursor-pointer"
-        >
-          ‹ Atrás
-        </button>
-
-        {/* Indicador de Paso */}
-        <p className="text-[12px] font-medium text-ink-muted mb-2.5">
-          Paso 1 de 3 · Tus datos
-        </p>
-
-        {/* Visor de Escaneo DNI */}
-        <div
-          onClick={onOpenScanner}
-          role="button"
-          tabIndex={0}
-          className={`relative w-full rounded-2xl bg-surface-scanner text-white cursor-pointer transition flex flex-col items-center justify-center overflow-hidden hover:brightness-110 active:scale-[0.99] ${
-            isScanned ? 'h-[88px] p-3 mb-4' : 'h-[170px] p-5 mb-5'
-          }`}
-          title="Toca para escanear DNI"
-        >
-          {/* Esquinas amarillas */}
-          <div className="pointer-events-none absolute inset-3">
-            <div className="absolute top-0 left-0 w-4 h-4 border-t-[2.5px] border-l-[2.5px] border-accent-yellow"></div>
-            <div className="absolute top-0 right-0 w-4 h-4 border-t-[2.5px] border-r-[2.5px] border-accent-yellow"></div>
-            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-[2.5px] border-l-[2.5px] border-accent-yellow"></div>
-            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-[2.5px] border-r-[2.5px] border-accent-yellow"></div>
-            
-            {!isScanned && (
-              <div className="absolute left-0 right-0 h-0.5 bg-accent-yellow shadow-[0_0_8px_#f2ab27] animate-scan-laser"></div>
-            )}
-          </div>
-
-          <div className="text-center z-10 px-4">
-            <p className="text-[13px] font-semibold text-white tracking-tight mb-1">
-              {isScanned ? '✓ DNI leído correctamente' : 'Escanea tu DNI para registrarte'}
-            </p>
-            <p className="text-[11px] text-gray-400 font-normal">
-              {isScanned ? 'Toca si deseas escanear nuevamente' : 'Coloca el DNI dentro del marco'}
-            </p>
-          </div>
+    <div className="flex flex-col justify-between h-full px-6 py-6 bg-[#f7f8f4] select-none overflow-y-auto">
+      <div>
+        {/* Cabecera Superior */}
+        <div className="flex items-center justify-between mb-4">
+          <button 
+            onClick={onBack} 
+            className="w-9 h-9 rounded-full bg-white shadow-xs flex items-center justify-center text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-semibold text-gray-700">
+            Paso 1 de 4 · DNI
+          </span>
+          <div className="w-9" />
         </div>
 
-        {/* ESTADO 1: ANTES DEL ESCANEO (Los campos NO son visibles) */}
-        {!isScanned && (
-          <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white border border-surface-border text-center shadow-2xs">
-            <div className="w-10 h-10 rounded-full bg-brand-50 text-brand-800 flex items-center justify-center mb-3">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+        {/* Barra de Progreso de 4 Segmentos */}
+        <div className="flex gap-2 mb-6">
+          <div className="h-1 flex-1 rounded-full bg-[#144e40]" />
+          <div className="h-1 flex-1 rounded-full bg-gray-200" />
+          <div className="h-1 flex-1 rounded-full bg-gray-200" />
+          <div className="h-1 flex-1 rounded-full bg-gray-200" />
+        </div>
+
+        {/* Título y Subtítulo */}
+        <h2 className="text-2xl font-black text-gray-900 mb-1.5 tracking-tight">
+          Escanea tu DNI
+        </h2>
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+          Leemos tus datos automáticamente y verificamos que seas mayor de edad.
+        </p>
+
+        {/* Visor Card */}
+        {!isScanned ? (
+          <div
+            onClick={onOpenScanner}
+            className="w-full bg-[#111827] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer shadow-lg hover:brightness-110 transition mb-5"
+          >
+            {/* Marco con esquinas teal */}
+            <div className="relative w-4/5 h-32 border border-dashed border-teal-400 rounded-xl p-3 flex flex-col justify-end gap-1.5 mb-4">
+              <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-teal-400"></div>
+              <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-teal-400"></div>
+              <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-teal-400"></div>
+              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-teal-400"></div>
+
+              <div className="h-1.5 bg-gray-700 rounded-full w-full"></div>
+              <div className="h-1.5 bg-gray-700 rounded-full w-5/6"></div>
+              <div className="h-1.5 bg-gray-700 rounded-full w-11/12"></div>
             </div>
-            <h4 className="text-[13px] font-bold text-ink-primary mb-1">
-              Verificación de identidad oficial
-            </h4>
-            <p className="text-[11px] text-ink-secondary leading-relaxed">
-              Tus datos personales (nombre, apellidos, edad y DNI) aparecerán aquí automáticamente tras escanear tu documento para proteger la seguridad de tu comunidad.
+
+            <p className="text-xs text-gray-400 font-medium text-center">
+              Coloca el reverso del DNI dentro del recuadro
             </p>
-            <button
-              type="button"
-              onClick={onOpenScanner}
-              className="mt-4 px-4 py-2 rounded-xl bg-brand-800 hover:bg-brand-900 text-white text-[12px] font-semibold transition active:scale-95 cursor-pointer"
-            >
-              Iniciar escaneo de DNI
-            </button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl p-5 border-2 border-[#144e40] shadow-xs mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#144e40] flex items-center justify-center text-white">
+                  <Check className="w-4 h-4" strokeWidth={3} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-gray-900">DNI verificado con éxito</h4>
+                  <p className="text-xs text-[#144e40] font-semibold">Validado en Registro Civil</p>
+                </div>
+              </div>
+              <button 
+                onClick={onOpenScanner}
+                className="text-xs font-bold text-[#144e40] hover:underline cursor-pointer"
+              >
+                Re-escanear
+              </button>
+            </div>
+
+            <div className="bg-emerald-50/50 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Ciudadano:</span>
+                <span className="font-bold text-gray-900">{formData.firstName} {formData.lastName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Nro. DNI:</span>
+                <span className="font-bold text-gray-900">{formData.dni}</span>
+              </div>
+              {Boolean(formData.age) && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Edad / Sexo:</span>
+                  <span className="font-bold text-gray-900">
+                    {formData.age} años · {formData.gender === 'F' || formData.gender === 'Femenino' ? 'Femenino' : 'Masculino'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* ESTADO 2: DESPUÉS DEL ESCANEO (Aparecen los campos y son estrictamente NO EDITABLES) */}
-        {isScanned && (
-          <div className="flex flex-col gap-2.5 animate-in fade-in duration-300">
-            {/* Aviso de campos validados y bloqueados */}
-            <div className="flex items-center justify-between mb-0.5">
-              <span className="text-[11px] font-semibold text-brand-800 flex items-center gap-1">
-                <span>✓ Datos oficiales leídos de RENIEC</span>
-              </span>
-              <span className="text-[10px] text-ink-muted bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-                No editables
-              </span>
-            </div>
-
-            {/* Nombre (No editable) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium text-ink-primary">Nombre</label>
-                <span className="text-[10px] font-medium text-brand-800 bg-brand-100 px-2 py-0.2 rounded-full">
-                  Autollenado
-                </span>
-              </div>
-              <input
-                type="text"
-                value={formData.firstName}
-                readOnly
-                disabled
-                tabIndex={-1}
-                aria-readonly="true"
-                className="w-full rounded-xl bg-gray-50/90 border border-surface-border px-3.5 py-2.5 text-[13px] font-semibold text-ink-primary cursor-default select-none shadow-2xs focus:outline-none"
-              />
-            </div>
-
-            {/* Apellido (No editable) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium text-ink-primary">Apellido</label>
-                <span className="text-[10px] font-medium text-brand-800 bg-brand-100 px-2 py-0.2 rounded-full">
-                  Autollenado
-                </span>
-              </div>
-              <input
-                type="text"
-                value={formData.lastName}
-                readOnly
-                disabled
-                tabIndex={-1}
-                aria-readonly="true"
-                className="w-full rounded-xl bg-gray-50/90 border border-surface-border px-3.5 py-2.5 text-[13px] font-semibold text-ink-primary cursor-default select-none shadow-2xs focus:outline-none"
-              />
-            </div>
-
-            {/* Edad y Sexo en 2 columnas (No editables) */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-medium text-ink-primary">Edad</label>
-                  <span className="text-[10px] font-medium text-brand-800 bg-brand-100 px-1.5 py-0.2 rounded-full">
-                    Autollenado
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={formData.age}
-                  readOnly
-                  disabled
-                  tabIndex={-1}
-                  aria-readonly="true"
-                  className="w-full rounded-xl bg-gray-50/90 border border-surface-border px-3.5 py-2.5 text-[13px] font-semibold text-ink-primary cursor-default select-none shadow-2xs focus:outline-none"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-medium text-ink-primary">Sexo</label>
-                  <span className="text-[10px] font-medium text-brand-800 bg-brand-100 px-1.5 py-0.2 rounded-full">
-                    Autollenado
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={formData.gender}
-                  readOnly
-                  disabled
-                  tabIndex={-1}
-                  aria-readonly="true"
-                  className="w-full rounded-xl bg-gray-50/90 border border-surface-border px-3.5 py-2.5 text-[13px] font-semibold text-ink-primary cursor-default select-none shadow-2xs focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Nro. de DNI (No editable) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium text-ink-primary">Nro. de DNI</label>
-                <span className="text-[10px] font-medium text-brand-800 bg-brand-100 px-2 py-0.2 rounded-full">
-                  Autollenado
-                </span>
-              </div>
-              <input
-                type="text"
-                value={formData.dni}
-                readOnly
-                disabled
-                tabIndex={-1}
-                aria-readonly="true"
-                className="w-full rounded-xl bg-gray-50/90 border border-surface-border px-3.5 py-2.5 text-[13px] font-semibold text-ink-primary cursor-default select-none shadow-2xs focus:outline-none"
-              />
-            </div>
-          </div>
-        )}
+        {/* Garantía de Privacidad */}
+        <div className="flex items-center gap-3 bg-[#d6eee2] p-4 rounded-2xl mb-6">
+          <Lock className="w-5 h-5 text-[#144e40] shrink-0" />
+          <p className="text-xs text-[#144e40] font-medium leading-relaxed">
+            No guardamos la foto de tu DNI. Solo usamos tu nombre, edad y sexo para tu perfil.
+          </p>
+        </div>
       </div>
 
-      {/* Botones Inferiores del Paso 1 */}
-      <div className="flex flex-col gap-2 pt-4 pb-1">
-        {/* Botón Activar Mapa */}
-        <button
-          onClick={onActivateMap}
-          className="w-full py-3 px-4 rounded-xl bg-white hover:bg-brand-50 active:scale-[0.99] text-brand-800 font-semibold text-[13px] border border-brand-800 shadow-2xs transition flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <svg className="w-4 h-4 text-brand-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>Activar mapa</span>
-        </button>
-
-        {/* Botón Registrar (Deshabilitado en Paso 1) */}
-        <button
-          disabled
-          className="w-full py-3.5 px-4 rounded-xl bg-surface-mutedBtn text-surface-mutedText font-semibold text-[14px] cursor-not-allowed text-center"
-        >
-          Registrar
-        </button>
-        <p className="text-[11px] text-center text-surface-mutedText font-normal">
-          Se habilita al guardar tu domicilio en el mapa
-        </p>
+      {/* Botón de Acción */}
+      <div>
+        {!isScanned ? (
+          <button
+            onClick={onOpenScanner}
+            className="w-full py-3.5 bg-black text-white font-bold rounded-xl text-base flex items-center justify-center gap-2 hover:bg-gray-800 transition cursor-pointer"
+          >
+            <Maximize2 className="w-4 h-4" />
+            Escanear DNI
+          </button>
+        ) : (
+          <button
+            onClick={onActivateMap}
+            className="w-full py-3.5 bg-[#144e40] text-white font-bold rounded-xl text-base flex items-center justify-center gap-2 hover:bg-[#103e33] transition cursor-pointer"
+          >
+            Continuar al paso 2 (Ubica tu casa)
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

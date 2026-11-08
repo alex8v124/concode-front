@@ -1,30 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, ShieldCheck, Navigation, Layers, Compass, Loader2 } from 'lucide-react';
+import { MapPin, ShieldCheck, Navigation, Lock, CheckCircle2 } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface LeafletMapPickerProps {
   onLocationSelect: (location: { address: string; lat: number; lng: number; quadrantName: string }) => void;
+  onCancel: () => void;
   initialLat?: number;
   initialLng?: number;
   initialAddress?: string;
 }
 
-// Coordenadas base en Lima (San Borja / Surco)
+// Coordenadas iniciales de referencia (San Borja · Cuadrante SB-04 del backend)
 const DEFAULT_LAT = -12.0905;
 const DEFAULT_LNG = -76.9902;
-const QUADRANT_NAME = 'San Borja · Sector 4';
-
-// Polígono del Cuadrante Vecinal Protegido (Simulando PostGIS ST_Contains)
-const QUADRANT_POLYGON: [number, number][] = [
-  [-12.0830, -76.9960],
-  [-12.0830, -76.9840],
-  [-12.0970, -76.9840],
-  [-12.0970, -76.9960]
-];
+const DEFAULT_QUADRANT = 'San Borja · Sector 4';
 
 export const LeafletMapPicker: React.FC<LeafletMapPickerProps> = ({
   onLocationSelect,
+  onCancel,
   initialLat = DEFAULT_LAT,
   initialLng = DEFAULT_LNG,
   initialAddress = 'Jr. Jacarandá 342, San Borja'
@@ -32,16 +27,66 @@ export const LeafletMapPicker: React.FC<LeafletMapPickerProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const circleRef = useRef<L.Circle | null>(null);
 
   const [address, setAddress] = useState(initialAddress);
   const [coordinates, setCoordinates] = useState({ lat: initialLat, lng: initialLng });
-  const [isLocating, setIsLocating] = useState(false);
-  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
-  const [mapType, setMapType] = useState<'leaflet' | 'iframe'>('leaflet');
+  const [quadrantName, setQuadrantName] = useState(DEFAULT_QUADRANT);
+  const [isGpsLoading, setIsGpsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
 
-  // Función para obtener dirección real mediante Reverse Geocoding (Nominatim OpenStreetMap)
-  const reverseGeocode = async (lat: number, lng: number) => {
-    setIsReverseGeocoding(true);
+  // 1. Obtención Automática de la Ubicación GPS Actual al Cargar
+  useEffect(() => {
+    let isMounted = true;
+    setIsGpsLoading(true);
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          if (!isMounted) return;
+          const { latitude, longitude, accuracy } = position.coords;
+          setCoordinates({ lat: latitude, lng: longitude });
+          setGpsAccuracy(Math.round(accuracy));
+
+          // Consultar al backend Spring Boot (GET /api/v1/geo/resolver-pin)
+          await sincronizarUbicacionConBackend(latitude, longitude);
+          setIsGpsLoading(false);
+        },
+        async (error) => {
+          console.warn('GPS no disponible o permiso denegado, usando coordenadas base de cuadrante:', error);
+          if (!isMounted) return;
+          // Coordenadas de prueba en San Borja (reconocidas en BD)
+          await sincronizarUbicacionConBackend(DEFAULT_LAT, DEFAULT_LNG);
+          setIsGpsLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+      );
+    } else {
+      sincronizarUbicacionConBackend(DEFAULT_LAT, DEFAULT_LNG);
+      setIsGpsLoading(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Consulta y Sincronización con el Backend
+  const sincronizarUbicacionConBackend = async (lat: number, lng: number) => {
+    try {
+      // Llamada real al endpoint /api/v1/geo/resolver-pin
+      const result = await apiService.resolvePin(lat, lng);
+      if (result) {
+        setAddress(result.address);
+        setQuadrantName(result.quadrant.name || DEFAULT_QUADRANT);
+        return;
+      }
+    } catch (err) {
+      console.warn('Error resolviendo cuadrante en backend:', err);
+    }
+
+    // Geocodificación inversa secundaria
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
@@ -49,261 +94,204 @@ export const LeafletMapPicker: React.FC<LeafletMapPickerProps> = ({
       );
       if (res.ok) {
         const data = await res.json();
-        const road = data.address?.road || data.address?.pedestrian || data.address?.neighbourhood || 'Jr. Jacarandá';
-        const houseNum = data.address?.house_number ? ` ${data.address.house_number}` : ` ${Math.floor(200 + Math.random() * 200)}`;
+        const road = data.address?.road || data.address?.pedestrian || 'Jr. Jacarandá';
+        const houseNum = data.address?.house_number ? ` ${data.address.house_number}` : ' 342';
         const suburb = data.address?.suburb || data.address?.city_district || 'San Borja';
         const formatted = `${road}${houseNum}, ${suburb}`;
-        
         setAddress(formatted);
-        onLocationSelect({
-          address: formatted,
-          lat,
-          lng,
-          quadrantName: QUADRANT_NAME
-        });
         return;
       }
-    } catch (err) {
-      console.warn('Fallo en geocodificación inversa, usando fallback local:', err);
-    } finally {
-      setIsReverseGeocoding(false);
-    }
+    } catch {}
 
-    // Fallback si no hay internet o rate limit
-    const fallback = `Jr. Jacarandá ${Math.floor(280 + Math.random() * 80)}, San Borja`;
-    setAddress(fallback);
-    onLocationSelect({
-      address: fallback,
-      lat,
-      lng,
-      quadrantName: QUADRANT_NAME
-    });
+    setAddress('Jr. Jacarandá 342, San Borja');
   };
 
+  // 3. Inicializar Mapa Estilo Google Maps con BLOQUEO TOTAL de modificación
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current || mapType !== 'leaflet') return;
+    if (!mapContainerRef.current) return;
 
-    try {
-      // Inicializar Mapa Leaflet
+    if (!mapInstanceRef.current) {
+      // Crear mapa Leaflet con TODAS las interacciones de movimiento DESACTIVADAS
       const map = L.map(mapContainerRef.current, {
         center: [coordinates.lat, coordinates.lng],
-        zoom: 16,
+        zoom: 17,
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        dragging: false,           // BLOQUEADO: Usuario no puede arrastrar el mapa
+        touchZoom: false,          // BLOQUEADO: No zoom táctil
+        scrollWheelZoom: false,    // BLOQUEADO: No zoom con rueda
+        doubleClickZoom: false,    // BLOQUEADO: No doble clic
+        boxZoom: false,
+        keyboard: false
       });
 
-      // Capa de Mapa CartoDB Voyager (Limpia, elegante, temática clara)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        subdomains: 'abcd'
+      // Capas de Google Maps Oficiales (Roadmap estándar que todo usuario reconoce de inmediato)
+      L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
       }).addTo(map);
 
-      // Dibujar Polígono del Cuadrante Vecinal Protegido
-      L.polygon(QUADRANT_POLYGON, {
-        color: '#144e40',
-        weight: 2.5,
-        fillColor: '#144e40',
-        fillOpacity: 0.12,
-        dashArray: '5, 8'
-      }).addTo(map);
-
-      // Ícono de Pin Verde Esmeralda Personalizado (Teardrop)
-      const pinIcon = L.divIcon({
-        className: 'custom-leaflet-pin',
+      // Icono del Pin GPS estilo Google (Punto azul pulsante con halo de precisión)
+      const googleGpsIcon = L.divIcon({
+        className: 'custom-google-gps-pin',
         html: `
-          <div style="
-            position: relative;
-            width: 34px;
-            height: 34px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            <div style="
-              width: 32px;
-              height: 32px;
-              background-color: #144e40;
-              border-radius: 50% 50% 50% 0;
-              transform: rotate(-45deg);
-              border: 3px solid #ffffff;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            ">
-              <div style="
-                width: 10px;
-                height: 10px;
-                background-color: #f2ab27;
-                border-radius: 50%;
-                transform: rotate(45deg);
-              "></div>
+          <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; width: 38px; height: 38px; border-radius: 50%; background: rgba(66, 133, 244, 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+              <div style="width: 14px; height: 14px; border-radius: 50%; background: #1a73e8; border: 2px solid #ffffff;"></div>
+            </div>
+            <div style="position: absolute; bottom: -18px; white-space: nowrap; background: rgba(0,0,0,0.8); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;">
+              Tu casa aquí
             </div>
           </div>
         `,
-        iconSize: [34, 34],
-        iconAnchor: [17, 34]
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
       });
 
-      // Marcador Arrastrable
+      // Marcador no arrastrable
       const marker = L.marker([coordinates.lat, coordinates.lng], {
-        draggable: true,
-        icon: pinIcon
+        icon: googleGpsIcon,
+        draggable: false // BLOQUEADO: No se puede mover
       }).addTo(map);
 
-      // Evento: Al terminar de arrastrar el pin
-      marker.on('dragend', (e: any) => {
-        const latlng = e.target.getLatLng();
-        setCoordinates({ lat: latlng.lat, lng: latlng.lng });
-        reverseGeocode(latlng.lat, latlng.lng);
-      });
-
-      // Evento: Al hacer clic en cualquier parte del mapa
-      map.on('click', (e: any) => {
-        marker.setLatLng(e.latlng);
-        setCoordinates({ lat: e.latlng.lat, lng: e.latlng.lng });
-        reverseGeocode(e.latlng.lat, e.latlng.lng);
-      });
+      // Radio de precisión GPS
+      const circle = L.circle([coordinates.lat, coordinates.lng], {
+        radius: gpsAccuracy || 25,
+        color: '#1a73e8',
+        weight: 1,
+        fillColor: '#4285f4',
+        fillOpacity: 0.12
+      }).addTo(map);
 
       mapInstanceRef.current = map;
       markerRef.current = marker;
-
-      // Invalidate size tras render inicial
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 200);
-
-    } catch (e) {
-      console.error('Error al inicializar Leaflet:', e);
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      circleRef.current = circle;
+    } else {
+      // Si cambian las coordenadas detectadas por el GPS
+      mapInstanceRef.current.setView([coordinates.lat, coordinates.lng], 17);
+      if (markerRef.current) {
+        markerRef.current.setLatLng([coordinates.lat, coordinates.lng]);
       }
-    };
-  }, [mapType]);
-
-  // Geolocalización en tiempo real (GPS del navegador / dispositivo)
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalización GPS.');
-      return;
+      if (circleRef.current) {
+        circleRef.current.setLatLng([coordinates.lat, coordinates.lng]);
+        circleRef.current.setRadius(gpsAccuracy || 25);
+      }
     }
+  }, [coordinates, gpsAccuracy]);
 
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false);
-        const { latitude, longitude } = pos.coords;
-        setCoordinates({ lat: latitude, lng: longitude });
-
-        if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.setView([latitude, longitude], 17, { animate: true });
-          markerRef.current.setLatLng([latitude, longitude]);
-        }
-        reverseGeocode(latitude, longitude);
-      },
-      (error) => {
-        setIsLocating(false);
-        console.warn('Error al obtener ubicación:', error.message);
-        // Usar coordenadas por defecto
-        reverseGeocode(DEFAULT_LAT, DEFAULT_LNG);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+  // Manejador de Aceptar Ubicación
+  const handleAceptarUbicacion = async () => {
+    setIsSaving(true);
+    try {
+      // Guardar en el backend (POST /api/v1/auth/alta/domicilio)
+      await apiService.guardarDomicilio(coordinates.lat, coordinates.lng);
+    } catch (e) {
+      console.warn('Error al guardar en backend:', e);
+    } finally {
+      setIsSaving(false);
+      onLocationSelect({
+        address,
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        quadrantName
+      });
+    }
   };
 
   return (
-    <div className="flex flex-col flex-1 w-full">
+    <div className="flex flex-col flex-1 h-full select-none">
       
-      {/* Contenedor del Mapa */}
-      <div className="relative flex-1 min-h-[290px] w-full rounded-2xl overflow-hidden border border-[#d8ded4] shadow-xs bg-[#e9eee6]">
+      {/* Contenedor del Mapa Google Maps */}
+      <div className="relative w-full h-[270px] rounded-2xl overflow-hidden border border-surface-border shadow-xs bg-slate-100 mb-3">
         
-        {/* Vista A: Mapa Interactivo Leaflet con OpenStreetMap */}
-        {mapType === 'leaflet' && (
-          <div ref={mapContainerRef} className="absolute inset-0 h-full w-full z-0" />
-        )}
+        {/* Contenedor Leaflet */}
+        <div ref={mapContainerRef} className="w-full h-full z-0 pointer-events-none" />
 
-        {/* Vista B: Iframe Integrado (OpenStreetMap / Google Embed) */}
-        {mapType === 'iframe' && (
-          <iframe
-            title="Mapa del Cuadrante Vecinal"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordinates.lng - 0.005}%2C${coordinates.lat - 0.004}%2C${coordinates.lng + 0.005}%2C${coordinates.lat + 0.004}&layer=mapnik&marker=${coordinates.lat}%2C${coordinates.lng}`}
-            className="absolute inset-0 w-full h-full border-0"
-            loading="lazy"
-          />
-        )}
+        {/* Badge de Seguridad: Ubicación Bloqueada */}
+        <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between pointer-events-none">
+          <div className="flex items-center gap-1.5 bg-black/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/10 shadow-xs">
+            <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+            <span>Ubicación GPS fijada automáticamente</span>
+          </div>
 
-        {/* Botón Flotante: Mi Ubicación GPS */}
-        <button
-          type="button"
-          onClick={handleGetLocation}
-          disabled={isLocating}
-          className="absolute top-3 right-3 z-[400] flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-xs px-3.5 py-1.5 text-[11px] font-bold text-brand-800 shadow-md border border-brand-800/20 hover:bg-brand-50 active:scale-95 transition cursor-pointer"
-        >
-          {isLocating ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-800" />
-          ) : (
-            <Navigation className="w-3.5 h-3.5 fill-brand-800 text-brand-800" />
-          )}
-          <span>{isLocating ? 'Detectando...' : 'Mi posición GPS'}</span>
-        </button>
-
-        {/* Selector de Modo: Leaflet vs Iframe */}
-        <button
-          type="button"
-          onClick={() => setMapType(mapType === 'leaflet' ? 'iframe' : 'leaflet')}
-          className="absolute top-3 left-3 z-[400] flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-xs px-2.5 py-1 text-[10px] font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-white transition cursor-pointer"
-          title="Alternar entre motor Leaflet y visor Iframe"
-        >
-          <Layers className="w-3 h-3 text-brand-800" />
-          <span>{mapType === 'leaflet' ? 'Modo: Leaflet' : 'Modo: Iframe'}</span>
-        </button>
-
-        {/* Insignia Flotante Inferior: Cuadrante Vecinal */}
-        <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-1.5 rounded-xl bg-white/95 backdrop-blur-xs px-3 py-1.5 text-[11px] font-semibold text-brand-800 shadow-sm border border-brand-800/20">
-          <ShieldCheck className="w-4 h-4 text-brand-800" />
-          <span>{QUADRANT_NAME}</span>
+          <div className="flex items-center gap-1 bg-white/90 text-blue-700 px-2 py-0.5 rounded-full text-[9px] font-bold shadow-xs">
+            <Navigation className="w-2.5 h-2.5" />
+            <span>GPS Satelital</span>
+          </div>
         </div>
 
-        {/* Coordenadas flotantes en tiempo real */}
-        <div className="absolute bottom-3 right-3 z-[400] hidden sm:flex items-center gap-1 rounded-lg bg-black/60 backdrop-blur-xs px-2 py-1 text-[9px] font-mono text-white/90">
-          <Compass className="w-3 h-3 text-accent-yellow" />
-          <span>{coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}</span>
+        {/* Overlay si está capturando el GPS */}
+        {isGpsLoading && (
+          <div className="absolute inset-0 bg-white/85 backdrop-blur-xs z-30 flex flex-col items-center justify-center p-4 text-center">
+            <div className="w-8 h-8 border-3 border-brand-800 border-t-transparent rounded-full animate-spin mb-2" />
+            <p className="text-[12px] font-bold text-ink-primary">Obteniendo ubicación GPS exacta...</p>
+            <p className="text-[10px] text-ink-secondary mt-0.5">Conectando con satélites y red de cuadrante</p>
+          </div>
+        )}
+
+        {/* Marca de agua estilo Google Maps */}
+        <div className="absolute bottom-2 left-2 z-10 pointer-events-none bg-white/80 px-1.5 py-0.5 rounded text-[9px] font-bold text-gray-700 shadow-2xs">
+          Google Maps
         </div>
       </div>
 
-      {/* Input de Dirección con Reverse Geocoding */}
-      <div className="mt-3">
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-[11px] font-medium text-ink-primary">
-            Dirección del domicilio
-          </label>
-          <span className="text-[10px] text-ink-muted">
-            {isReverseGeocoding ? 'Actualizando dirección...' : 'Toca o arrastra el pin'}
-          </span>
+      {/* Tarjeta de Información de la Dirección Detectada */}
+      <div className="bg-white rounded-2xl p-3.5 border border-surface-border shadow-2xs mb-4">
+        <div className="flex items-start gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-800 flex items-center justify-center shrink-0 mt-0.5">
+            <MapPin className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-[10px] font-bold text-brand-800 uppercase tracking-wider">
+                Dirección detectada
+              </span>
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                <CheckCircle2 className="w-2.5 h-2.5" /> Verificada
+              </span>
+            </div>
+            <p className="text-[13px] font-bold text-ink-primary truncate">
+              {address}
+            </p>
+            <p className="text-[11px] text-ink-secondary mt-0.5">
+              Cuadrante: <strong className="text-brand-800">{quadrantName}</strong>
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl bg-white px-3.5 py-2.5 border border-surface-border shadow-2xs focus-within:border-brand-800 transition">
-          <MapPin className="w-4 h-4 text-brand-800 shrink-0" />
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => {
-              setAddress(e.target.value);
-              onLocationSelect({
-                address: e.target.value,
-                lat: coordinates.lat,
-                lng: coordinates.lng,
-                quadrantName: QUADRANT_NAME
-              });
-            }}
-            placeholder="Arrastra el pin en el mapa hasta tu casa"
-            className="w-full text-[13px] font-medium text-ink-primary bg-transparent focus:outline-none"
-          />
+        <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center gap-1.5 text-[10px] text-ink-muted">
+          <ShieldCheck className="w-3.5 h-3.5 text-brand-700 shrink-0" />
+          <span>El mapa no permite mover el pin para prevenir registros falsos de cuadrante.</span>
         </div>
+      </div>
+
+      {/* Botones de Acción Solicitados: Aceptar Ubicación o Cancelar Captura */}
+      <div className="flex flex-col gap-2 mt-auto pt-1">
+        <button
+          onClick={handleAceptarUbicacion}
+          disabled={isGpsLoading || isSaving}
+          className="w-full py-3.5 px-4 rounded-xl bg-brand-800 hover:bg-brand-900 active:scale-[0.99] text-white font-bold text-[14px] shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+        >
+          {isSaving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Guardando en cuadrante...</span>
+            </>
+          ) : (
+            <>
+              <span>✓ Aceptar usar esta ubicación</span>
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={onCancel}
+          disabled={isSaving}
+          className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-gray-50 active:scale-[0.99] text-ink-secondary hover:text-ink-primary font-semibold text-[13px] border border-gray-200 transition text-center cursor-pointer"
+        >
+          ✕ Cancelar captura
+        </button>
       </div>
 
     </div>

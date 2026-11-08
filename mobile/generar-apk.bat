@@ -1,13 +1,16 @@
 @echo off
 setlocal enabledelayedexpansion
-title VECI - Generador de APK Android (EAS Build)
+title DeBarrio - Generador de APK y Modo Instantaneo
+set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
+set "PATH=%PATH%;%LOCALAPPDATA%\Android\Sdk\platform-tools"
 
 :menu
 cls
 echo =======================================================
-echo     VECI (Ayudar Trazable) - Generador de APK Android
+echo     DeBarrio - Menu Rapido de Pruebas y APK Android
 echo =======================================================
 echo.
+echo  [0] MODO INSTANTANEO POR USB / WIFI (0 min - Sin compilar APK)
 echo  [1] Iniciar sesion con tu NAVEGADOR (Recomendado para PCs nuevas)
 echo  [2] Generar / Compilar instalador APK en la nube
 echo  [3] Iniciar sesion con Access Token de Expo
@@ -16,8 +19,9 @@ echo  [5] Consultar estado y descarga del ultimo APK
 echo  [6] Abrir panel de compilaciones en el navegador
 echo  [7] Salir
 echo.
-set /p opt="Elige una opcion (1-7): "
+set /p opt="Elige una opcion (0-7): "
 
+if "%opt%"=="0" goto opt0
 if "%opt%"=="1" goto opt1
 if "%opt%"=="2" goto opt2
 if "%opt%"=="3" goto opt3
@@ -26,6 +30,10 @@ if "%opt%"=="5" goto opt5
 if "%opt%"=="6" goto opt6
 if "%opt%"=="7" goto salir
 goto invalid
+
+:opt0
+call "%~dp0probar-rapido.bat"
+goto menu
 
 :opt1
 echo.

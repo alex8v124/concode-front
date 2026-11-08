@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { LeafletMapPicker } from '../components/LeafletMapPicker';
 
 interface DomicilioMapScreenProps {
@@ -12,15 +12,8 @@ export const DomicilioMapScreen: React.FC<DomicilioMapScreenProps> = ({
   onSaveDomicilio,
   initialAddress = 'Jr. Jacarandá 342, San Borja'
 }) => {
-  const [selectedLocation, setSelectedLocation] = useState({
-    address: initialAddress,
-    lat: -12.0905,
-    lng: -76.9902,
-    quadrantName: 'San Borja · Sector 4'
-  });
-
   return (
-    <div className="flex flex-col justify-between h-full px-5 py-5 bg-surface-bg select-none">
+    <div className="flex flex-col justify-between h-full px-5 py-4 bg-surface-bg select-none">
       {/* Cabecera y Título */}
       <div className="flex flex-col flex-1">
         {/* Enlace Atrás */}
@@ -42,27 +35,16 @@ export const DomicilioMapScreen: React.FC<DomicilioMapScreenProps> = ({
         </h2>
         
         {/* Subtítulo de Privacidad Vecinal */}
-        <p className="text-[11px] text-ink-secondary leading-normal mb-2.5">
+        <p className="text-[11px] text-ink-secondary leading-normal mb-2">
           Solo vecinos verificados de tu cuadrante verán tu zona.
         </p>
 
-        {/* Mapa Interactivo con Geolocalización GPS e Iframe */}
+        {/* Mapa Google Maps Bloqueado con Auto-detección GPS */}
         <LeafletMapPicker
-          onLocationSelect={(loc) => setSelectedLocation(loc)}
-          initialLat={selectedLocation.lat}
-          initialLng={selectedLocation.lng}
-          initialAddress={selectedLocation.address}
+          onLocationSelect={onSaveDomicilio}
+          onCancel={onBack}
+          initialAddress={initialAddress}
         />
-      </div>
-
-      {/* Botón Guardar Domicilio */}
-      <div className="w-full pb-1 pt-3">
-        <button
-          onClick={() => onSaveDomicilio(selectedLocation)}
-          className="w-full py-3.5 px-5 rounded-xl bg-brand-800 hover:bg-brand-900 active:scale-[0.99] text-white font-semibold text-[15px] shadow-xs transition flex items-center justify-center cursor-pointer"
-        >
-          Guardar domicilio
-        </button>
       </div>
     </div>
   );
