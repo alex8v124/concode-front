@@ -13,7 +13,7 @@ import {
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { mobileApiService } from '../services/api';
 import { BarrioMapaScreen } from './BarrioMapaScreen';
-import { MensajesScreen } from './MensajesScreen';
+import { MensajesScreen, TargetChatContact } from './MensajesScreen';
 import { FavorDetalleScreen } from './FavorDetalleScreen';
 import { PublicarFlowScreen, PublicacionData } from './PublicarFlowScreen';
 import { DirectorioEmergenciaScreen } from './DirectorioEmergenciaScreen';
@@ -151,6 +151,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   const [ocultarBarraInferior, setOcultarBarraInferior] = useState(false);
   const [emergenciaActiva, setEmergenciaActiva] = useState(true);
   const [abrirDirectoTablero, setAbrirDirectoTablero] = useState(false);
+  const [targetChatContact, setTargetChatContact] = useState<TargetChatContact | null>(null);
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
 
@@ -224,6 +225,12 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           onBack={() => setSelectedVecino(null)}
           onOpenEscribirResena={() => setModalEscribirResenaVisible(true)}
           onContactar={() => {
+            setTargetChatContact({
+              id: selectedVecino.id,
+              name: selectedVecino.nombre,
+              initials: selectedVecino.iniciales,
+              subtitle: `Servicio · ${selectedVecino.rubro}`,
+            });
             setSelectedVecino(null);
             setVistaSecundaria('mensajes');
           }}
@@ -282,7 +289,15 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
   // Si está en la pantalla de Mensajes
   if (vistaSecundaria === 'mensajes') {
-    return <MensajesScreen onBack={() => setVistaSecundaria('ninguna')} />;
+    return (
+      <MensajesScreen
+        initialTargetContact={targetChatContact}
+        onBack={() => {
+          setTargetChatContact(null);
+          setVistaSecundaria('ninguna');
+        }}
+      />
+    );
   }
 
   // Si está en el Detalle de Favor
@@ -290,7 +305,17 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
     return (
       <FavorDetalleScreen 
         onBack={() => setVistaSecundaria('ninguna')} 
-        onPedirPrestado={() => setVistaSecundaria('mensajes')} 
+        onPedirPrestado={() => {
+          setTargetChatContact({
+            id: '2',
+            name: 'Julio R.',
+            initials: 'JR',
+            subtitle: 'Favor · Presto taladro',
+            avatarBg: '#e0e7fb',
+            avatarColor: '#2b4290',
+          });
+          setVistaSecundaria('mensajes');
+        }} 
       />
     );
   }
@@ -386,7 +411,10 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             <TouchableOpacity 
               style={styles.chatButton} 
               activeOpacity={0.85}
-              onPress={() => setVistaSecundaria('mensajes')}
+              onPress={() => {
+                setTargetChatContact(null);
+                setVistaSecundaria('mensajes');
+              }}
             >
               <Feather name="message-square" size={19} color="#ffffff" />
               <View style={styles.chatBadge}>

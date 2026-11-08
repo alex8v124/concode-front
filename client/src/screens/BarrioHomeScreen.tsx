@@ -28,7 +28,7 @@ import { MiActividadView } from '../components/MiActividadView';
 import { PerfilVecinoModal } from '../components/PerfilVecinoModal';
 import { EscribirResenaModal } from '../components/EscribirResenaModal';
 import { FavorDetalleModal } from '../components/FavorDetalleModal';
-import { MensajesModal } from '../components/MensajesModal';
+import { MensajesModal, type TargetChatContactWeb } from '../components/MensajesModal';
 import { DirectorioEmergenciaView } from '../components/DirectorioEmergenciaView';
 
 interface BarrioHomeScreenProps {
@@ -151,6 +151,7 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
   const [modalFavorVisible, setModalFavorVisible] = useState(false);
   const [selectedFavor, setSelectedFavor] = useState<any | null>(null);
   const [modalMensajesVisible, setModalMensajesVisible] = useState(false);
+  const [targetChatContact, setTargetChatContact] = useState<TargetChatContactWeb | null>(null);
   const [ocultarBarraInferior, setOcultarBarraInferior] = useState(false);
   const [emergenciaActiva, setEmergenciaActiva] = useState(true);
   const [abrirDirectoTablero, setAbrirDirectoTablero] = useState(false);
@@ -225,7 +226,10 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
 
             <button 
               title="Mensajes vecinales"
-              onClick={() => setModalMensajesVisible(true)}
+              onClick={() => {
+                setTargetChatContact(null);
+                setModalMensajesVisible(true);
+              }}
               className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center relative shadow-sm hover:opacity-95 transition cursor-pointer"
             >
               <MessageSquare className="w-5 h-5" strokeWidth={2.2} />
@@ -512,6 +516,12 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
           onClose={() => setSelectedVecino(null)}
           onOpenEscribirResena={() => setModalEscribirResenaVisible(true)}
           onContactar={() => {
+            setTargetChatContact({
+              id: selectedVecino.id,
+              name: selectedVecino.nombre,
+              initials: selectedVecino.iniciales,
+              subtitle: `Servicio · ${selectedVecino.rubro}`,
+            });
             setSelectedVecino(null);
             setModalMensajesVisible(true);
           }}
@@ -548,6 +558,12 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
         isOpen={modalFavorVisible}
         onClose={() => setModalFavorVisible(false)}
         onOpenChat={() => {
+          setTargetChatContact({
+            id: '2',
+            name: selectedFavor?.vecino || 'Julio R.',
+            initials: 'JR',
+            subtitle: `Favor · ${selectedFavor?.titulo || 'Presto taladro'}`,
+          });
           setModalFavorVisible(false);
           setModalMensajesVisible(true);
         }}
@@ -557,7 +573,11 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
       {/* Modal Mensajes Internos Vecinales */}
       <MensajesModal
         isOpen={modalMensajesVisible}
-        onClose={() => setModalMensajesVisible(false)}
+        targetContact={targetChatContact}
+        onClose={() => {
+          setTargetChatContact(null);
+          setModalMensajesVisible(false);
+        }}
       />
 
       {/* Modal Flujo Publicar de 3 Pasos + Éxito */}
