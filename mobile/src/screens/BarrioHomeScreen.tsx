@@ -12,6 +12,9 @@ import {
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { mobileApiService } from '../services/api';
+import { BarrioMapaScreen } from './BarrioMapaScreen';
+import { MensajesScreen } from './MensajesScreen';
+import { FavorDetalleScreen } from './FavorDetalleScreen';
 
 interface Props {
   userData: {
@@ -26,6 +29,7 @@ interface Props {
 
 type Categoria = 'servicios' | 'favores';
 type Tab = 'inicio' | 'mapa' | 'emergencia' | 'actividad' | 'perfil';
+type VistaSecundaria = 'ninguna' | 'mensajes' | 'favor_detalle';
 
 interface ServicioItem {
   id: string;
@@ -96,12 +100,12 @@ const SERVICIOS_MOCK: ServicioItem[] = [
   },
   {
     id: '5',
-    iniciales: 'AM',
-    nombre: 'Ana Mendoza',
-    distancia: '210 m',
-    rubro: 'Presto escalera telescópica',
+    iniciales: 'JR',
+    nombre: 'Julio R. · Mz. A',
+    distancia: '150 m',
+    rubro: 'Presto taladro percutor',
     detalle: 'Disponible fin de semana',
-    vistosBuenos: 15,
+    vistosBuenos: 23,
     calificacion: 5.0,
     bgAvatar: '#e0e7fb',
     colorAvatar: '#2b4290',
@@ -109,15 +113,15 @@ const SERVICIOS_MOCK: ServicioItem[] = [
   },
   {
     id: '6',
-    iniciales: 'CR',
-    nombre: 'Carlos Ramos',
-    distancia: '390 m',
-    rubro: 'Dono libros escolares',
-    detalle: '3ro y 4to de secundaria',
-    vistosBuenos: 22,
+    iniciales: 'TL',
+    nombre: 'Teresa L.',
+    distancia: '310 m',
+    rubro: 'Presto escalera telescópica',
+    detalle: 'Para trabajos en casa',
+    vistosBuenos: 15,
     calificacion: 4.9,
-    bgAvatar: '#d6eee2',
-    colorAvatar: '#144e40',
+    bgAvatar: '#fee4e2',
+    colorAvatar: '#912018',
     categoria: 'favores',
   },
 ];
@@ -126,6 +130,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   const [categoriaActiva, setCategoriaActiva] = useState<Categoria>('servicios');
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState<Tab>('inicio');
+  const [vistaSecundaria, setVistaSecundaria] = useState<VistaSecundaria>('ninguna');
   const [modalPanicoVisible, setModalPanicoVisible] = useState(false);
   const [modalPublicarVisible, setModalPublicarVisible] = useState(false);
   const [modalPerfilVisible, setModalPerfilVisible] = useState(false);
@@ -133,6 +138,16 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   const [enviandoPanico, setEnviandoPanico] = useState(false);
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
+
+  // Si está en la pantalla de Mensajes
+  if (vistaSecundaria === 'mensajes') {
+    return <MensajesScreen onBack={() => setVistaSecundaria('ninguna')} />;
+  }
+
+  // Si está en el Detalle de Favor
+  if (vistaSecundaria === 'favor_detalle') {
+    return <FavorDetalleScreen onBack={() => setVistaSecundaria('ninguna')} />;
+  }
 
   const listaFiltrada = SERVICIOS_MOCK.filter(item => {
     const coincideCat = item.categoria === categoriaActiva;
@@ -161,149 +176,166 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
   return (
     <View style={styles.mainWrapper}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Cabecera: Tu zona + Dropdown + Chat Icon con Badge */}
-        <View style={styles.topHeader}>
-          <View>
-            <Text style={styles.tuZonaLabel}>Tu zona</Text>
-            <TouchableOpacity style={styles.zonaSelector} activeOpacity={0.7}>
-              <Feather name="map-pin" size={17} color="#144e40" />
-              <Text style={styles.zonaText} numberOfLines={1}>{cuadranteMostrado}</Text>
-              <Feather name="chevron-down" size={17} color="#144e40" />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.chatButton} activeOpacity={0.85}>
-            <Feather name="message-square" size={19} color="#ffffff" />
-            <View style={styles.chatBadge}>
-              <Text style={styles.chatBadgeText}>3</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Tarjetas Principales: Servicios y Favores */}
-        <View style={styles.categoriesRow}>
+      
+      {/* Vista de Tab Mapa */}
+      {tabActiva === 'mapa' ? (
+        <BarrioMapaScreen userData={userData} />
+      ) : (
+        /* Vista de Tab Inicio */
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Tarjeta Servicios */}
-          <TouchableOpacity 
-            style={[styles.categoryCard, categoriaActiva === 'servicios' ? styles.cardActive : styles.cardInactive]}
-            onPress={() => setCategoriaActiva('servicios')}
-            activeOpacity={0.85}
-          >
-            <MaterialCommunityIcons 
-              name="wrench" 
-              size={22} 
-              color={categoriaActiva === 'servicios' ? '#ffffff' : '#144e40'} 
-            />
-            <Text style={[styles.categoryTitle, categoriaActiva === 'servicios' ? styles.titleActive : styles.titleInactive]}>
-              Servicios
-            </Text>
-            <Text style={[styles.categorySubtitle, categoriaActiva === 'servicios' ? styles.subActive : styles.subInactive]}>
-              Oficios y profesiones
-            </Text>
-          </TouchableOpacity>
+          {/* Cabecera: Tu zona + Dropdown + Chat Icon con Badge */}
+          <View style={styles.topHeader}>
+            <View>
+              <Text style={styles.tuZonaLabel}>Tu zona</Text>
+              <TouchableOpacity style={styles.zonaSelector} activeOpacity={0.7}>
+                <Feather name="map-pin" size={17} color="#144e40" />
+                <Text style={styles.zonaText} numberOfLines={1}>{cuadranteMostrado}</Text>
+                <Feather name="chevron-down" size={17} color="#144e40" />
+              </TouchableOpacity>
+            </View>
 
-          {/* Tarjeta Favores */}
-          <TouchableOpacity 
-            style={[styles.categoryCard, categoriaActiva === 'favores' ? styles.cardActive : styles.cardInactive]}
-            onPress={() => setCategoriaActiva('favores')}
-            activeOpacity={0.85}
-          >
-            <Feather 
-              name="heart" 
-              size={22} 
-              color={categoriaActiva === 'favores' ? '#ffffff' : '#1f2937'} 
-            />
-            <Text style={[styles.categoryTitle, categoriaActiva === 'favores' ? styles.titleActive : styles.titleInactive]}>
-              Favores
-            </Text>
-            <Text style={[styles.categorySubtitle, categoriaActiva === 'favores' ? styles.subActive : styles.subInactive]}>
-              Presta, dona, ofrece o pide
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Barra de Búsqueda */}
-        <View style={styles.searchBar}>
-          <Feather name="search" size={18} color="#9ca3af" />
-          <TextInput 
-            style={styles.searchInput}
-            placeholder="Busca gasfitero, profesor de inglés..."
-            placeholderTextColor="#9ca3af"
-            value={busqueda}
-            onChangeText={setBusqueda}
-          />
-        </View>
-
-        {/* Encabezado de Sección: Cerca de ti */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>Cerca de ti</Text>
-            <Text style={styles.sectionSubtitle}>Ordenado por cercanía · hasta 1 km</Text>
-          </View>
-
-          <View style={styles.distanceBadge}>
-            <Feather name="map-pin" size={12} color="#144e40" />
-            <Text style={styles.distanceBadgeText}>1 km</Text>
-          </View>
-        </View>
-
-        {/* Lista de Servicios / Vecinos */}
-        <View style={styles.itemsList}>
-          {listaFiltrada.map((item) => (
             <TouchableOpacity 
-              key={item.id} 
-              style={styles.itemCard}
-              activeOpacity={0.7}
-              onPress={() => {
-                Alert.alert(item.nombre, `${item.rubro}\n${item.detalle}\nUbicado a ${item.distancia} de tu casa.`);
-              }}
+              style={styles.chatButton} 
+              activeOpacity={0.85}
+              onPress={() => setVistaSecundaria('mensajes')}
             >
-              <View style={[styles.itemAvatar, { backgroundColor: item.bgAvatar }]}>
-                <Text style={[styles.itemAvatarText, { color: item.colorAvatar }]}>
-                  {item.iniciales}
-                </Text>
-              </View>
-
-              <View style={styles.itemDetails}>
-                <View style={styles.itemTopRow}>
-                  <Text style={styles.itemName}>{item.nombre}</Text>
-                  <Text style={styles.itemDistance}>{item.distancia}</Text>
-                </View>
-
-                <Text style={styles.itemProfession}>
-                  {item.rubro} · <Text style={styles.itemSubDetail}>{item.detalle}</Text>
-                </Text>
-
-                <View style={styles.itemMetaRow}>
-                  <View style={styles.reputationBadge}>
-                    <Feather name="thumbs-up" size={12} color="#144e40" />
-                    <Text style={styles.reputationText}>{item.vistosBuenos} vistos buenos</Text>
-                  </View>
-
-                  <View style={styles.ratingBadge}>
-                    <Ionicons name="star" size={12} color="#f59e0b" />
-                    <Text style={styles.ratingText}>{item.calificacion.toFixed(1)}</Text>
-                  </View>
-                </View>
+              <Feather name="message-square" size={19} color="#ffffff" />
+              <View style={styles.chatBadge}>
+                <Text style={styles.chatBadgeText}>3</Text>
               </View>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          {/* Tarjetas Principales: Servicios y Favores */}
+          <View style={styles.categoriesRow}>
+            
+            {/* Tarjeta Servicios */}
+            <TouchableOpacity 
+              style={[styles.categoryCard, categoriaActiva === 'servicios' ? styles.cardActive : styles.cardInactive]}
+              onPress={() => setCategoriaActiva('servicios')}
+              activeOpacity={0.85}
+            >
+              <MaterialCommunityIcons 
+                name="wrench" 
+                size={22} 
+                color={categoriaActiva === 'servicios' ? '#ffffff' : '#144e40'} 
+              />
+              <Text style={[styles.categoryTitle, categoriaActiva === 'servicios' ? styles.titleActive : styles.titleInactive]}>
+                Servicios
+              </Text>
+              <Text style={[styles.categorySubtitle, categoriaActiva === 'servicios' ? styles.subActive : styles.subInactive]}>
+                Oficios y profesiones
+              </Text>
+            </TouchableOpacity>
 
-      {/* Botón Flotante + Publicar */}
-      <TouchableOpacity 
-        style={styles.fabBtn} 
-        activeOpacity={0.85}
-        onPress={() => setModalPublicarVisible(true)}
-      >
-        <Feather name="plus" size={18} color="#ffffff" />
-        <Text style={styles.fabBtnText}>Publicar</Text>
-      </TouchableOpacity>
+            {/* Tarjeta Favores */}
+            <TouchableOpacity 
+              style={[styles.categoryCard, categoriaActiva === 'favores' ? styles.cardActive : styles.cardInactive]}
+              onPress={() => setCategoriaActiva('favores')}
+              activeOpacity={0.85}
+            >
+              <Feather 
+                name="heart" 
+                size={22} 
+                color={categoriaActiva === 'favores' ? '#ffffff' : '#1f2937'} 
+              />
+              <Text style={[styles.categoryTitle, categoriaActiva === 'favores' ? styles.titleActive : styles.titleInactive]}>
+                Favores
+              </Text>
+              <Text style={[styles.categorySubtitle, categoriaActiva === 'favores' ? styles.subActive : styles.subInactive]}>
+                Presta, dona, ofrece o pide
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Barra de Búsqueda */}
+          <View style={styles.searchBar}>
+            <Feather name="search" size={18} color="#9ca3af" />
+            <TextInput 
+              style={styles.searchInput}
+              placeholder="Busca gasfitero, profesor de inglés..."
+              placeholderTextColor="#9ca3af"
+              value={busqueda}
+              onChangeText={setBusqueda}
+            />
+          </View>
+
+          {/* Encabezado de Sección: Cerca de ti */}
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Cerca de ti</Text>
+              <Text style={styles.sectionSubtitle}>Ordenado por cercanía · hasta 1 km</Text>
+            </View>
+
+            <View style={styles.distanceBadge}>
+              <Feather name="map-pin" size={12} color="#144e40" />
+              <Text style={styles.distanceBadgeText}>1 km</Text>
+            </View>
+          </View>
+
+          {/* Lista de Servicios / Vecinos */}
+          <View style={styles.itemsList}>
+            {listaFiltrada.map((item) => (
+              <TouchableOpacity 
+                key={item.id} 
+                style={styles.itemCard}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (item.categoria === 'favores') {
+                    setVistaSecundaria('favor_detalle');
+                  } else {
+                    Alert.alert(item.nombre, `${item.rubro}\n${item.detalle}\nUbicado a ${item.distancia} de tu casa.`);
+                  }
+                }}
+              >
+                <View style={[styles.itemAvatar, { backgroundColor: item.bgAvatar }]}>
+                  <Text style={[styles.itemAvatarText, { color: item.colorAvatar }]}>
+                    {item.iniciales}
+                  </Text>
+                </View>
+
+                <View style={styles.itemDetails}>
+                  <View style={styles.itemTopRow}>
+                    <Text style={styles.itemName}>{item.nombre}</Text>
+                    <Text style={styles.itemDistance}>{item.distancia}</Text>
+                  </View>
+
+                  <Text style={styles.itemProfession}>
+                    {item.rubro} · <Text style={styles.itemSubDetail}>{item.detalle}</Text>
+                  </Text>
+
+                  <View style={styles.itemMetaRow}>
+                    <View style={styles.reputationBadge}>
+                      <Feather name="thumbs-up" size={12} color="#144e40" />
+                      <Text style={styles.reputationText}>{item.vistosBuenos} vistos buenos</Text>
+                    </View>
+
+                    <View style={styles.ratingBadge}>
+                      <Ionicons name="star" size={12} color="#f59e0b" />
+                      <Text style={styles.ratingText}>{item.calificacion.toFixed(1)}</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
+
+      {/* Botón Flotante + Publicar (visible en Inicio) */}
+      {tabActiva === 'inicio' && (
+        <TouchableOpacity 
+          style={styles.fabBtn} 
+          activeOpacity={0.85}
+          onPress={() => setModalPublicarVisible(true)}
+        >
+          <Feather name="plus" size={18} color="#ffffff" />
+          <Text style={styles.fabBtnText}>Publicar</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Barra de Navegación Inferior Estilo Oficial (5 items) */}
       <View style={styles.bottomNav}>
@@ -321,10 +353,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         {/* Mapa */}
         <TouchableOpacity 
           style={styles.navItem} 
-          onPress={() => {
-            setTabActiva('mapa');
-            Alert.alert('Mapa Vecinal', `Mostrando cobertura oficial de tu cuadrante:\n${cuadranteMostrado}`);
-          }}
+          onPress={() => setTabActiva('mapa')}
           activeOpacity={0.7}
         >
           <Feather name="map" size={22} color={tabActiva === 'mapa' ? '#144e40' : '#6b7280'} />
