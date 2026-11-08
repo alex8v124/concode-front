@@ -282,6 +282,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
     return (
       <DirectorioEmergenciaScreen 
         userQuadrant={cuadranteMostrado}
+        userName={`${userData.firstName || ""} ${userData.lastName || ""}`.trim() || "Carlos M."}
         onBack={() => setVistaSecundaria('ninguna')}
       />
     );
@@ -375,6 +376,7 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         <DirectorioEmergenciaScreen 
           userQuadrant={cuadranteMostrado}
           userAddress={userData.address}
+          userName={`${userData.firstName || ""} ${userData.lastName || ""}`.trim() || "Carlos M."}
           initialScreen={abrirDirectoTablero ? '7_tablero' : emergenciaActiva ? '6_activa' : '1_inactiva'}
           onBack={() => {
             setAbrirDirectoTablero(false);

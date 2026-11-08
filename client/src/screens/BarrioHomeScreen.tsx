@@ -200,6 +200,7 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
           }}
           quadrantName={cuadranteMostrado}
           userAddress={userData.addressText}
+          userName={`${userData.firstName || ""} ${userData.lastName || ""}`.trim() || "Carlos M."}
           initialScreen={abrirDirectoTablero ? '7_tablero' : emergenciaActiva ? '6_activa' : '1_inactiva'}
           onStepModeChange={setOcultarBarraInferior}
           onEmergencyActiveChange={(isActive) => {

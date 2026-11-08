@@ -127,6 +127,13 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
   const [seleccionReportar, setSeleccionReportar] = useState<string>('Agua');
   const [seleccionOfrecer, setSeleccionOfrecer] = useState<string>('Botiquín');
   const [seleccionAcopio, setSeleccionAcopio] = useState<string>('Local comunal');
+  const [pasoAcopio, setPasoAcopio] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [nombreLugarAcopio, setNombreLugarAcopio] = useState<string>('');
+  const [recibeAcopio, setRecibeAcopio] = useState<string[]>(['Agua', 'Alimentos']);
+  const [horaAbreAcopio, setHoraAbreAcopio] = useState<string>('08:00');
+  const [horaCierraAcopio, setHoraCierraAcopio] = useState<string>('20:00');
+  const [confirmacionesAcopio, setConfirmacionesAcopio] = useState<number>(1);
+  const [estadoAcopio, setEstadoAcopio] = useState<'Abierto' | 'Lleno' | 'Cerrado'>('Abierto');
 
   // Paso 7 (Tablero E7)
   const [estoyASalvo, setEstoyASalvo] = useState(false);
@@ -718,7 +725,12 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
                 Puntos de acopio
               </h3>
               <button
-                onClick={() => setModalAyuda('proponer_acopio')}
+                onClick={() => {
+                  setPasoAcopio(1);
+                  setConfirmacionesAcopio(1);
+                  setEstadoAcopio('Abierto');
+                  setModalAyuda('proponer_acopio');
+                }}
                 className="px-3.5 py-1.5 rounded-full bg-[#fce8e0] text-[#b43b1d] hover:bg-[#fad8cd] text-xs font-bold transition cursor-pointer"
               >
                 + Proponer punto
@@ -985,90 +997,387 @@ export const DirectorioEmergenciaView: React.FC<DirectorioEmergenciaViewProps> =
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
             <div className="bg-[#f7f5ef] w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] p-5 pb-7 flex flex-col gap-4 border border-gray-200 shadow-2xl max-h-[92vh] overflow-y-auto">
               
-              {/* Barra superior: cerrar y paso */}
+              {/* Barra superior: cerrar y paso / Atrás */}
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setModalAyuda('ninguno')}
+                  type="button"
+                  onClick={() => {
+                    setModalAyuda('ninguno');
+                    setPasoAcopio(1);
+                  }}
                   className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-600 hover:text-black cursor-pointer shadow-2xs"
                 >
                   <X className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-semibold text-gray-600">Paso 1 de 3</span>
+                <span className="text-xs font-semibold text-gray-600">
+                  {pasoAcopio === 1 && 'Paso 1 de 3'}
+                  {pasoAcopio === 2 && 'Paso 2 de 3'}
+                  {pasoAcopio === 3 && 'Paso 3 de 3'}
+                  {pasoAcopio === 4 && 'Verificación'}
+                  {pasoAcopio === 5 && 'Listo'}
+                </span>
+                {pasoAcopio === 2 ? (
+                  <button
+                    type="button"
+                    onClick={() => setPasoAcopio(1)}
+                    className="text-xs font-bold text-[#b43b1d] hover:underline cursor-pointer"
+                  >
+                    Atrás
+                  </button>
+                ) : pasoAcopio === 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setPasoAcopio(2)}
+                    className="text-xs font-bold text-[#b43b1d] hover:underline cursor-pointer"
+                  >
+                    Atrás
+                  </button>
+                ) : (
+                  <div className="w-8" />
+                )}
               </div>
 
               {/* Barra de progreso de 3 segmentos */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="h-1 rounded-full bg-[#b43b1d]" />
-                <div className="h-1 rounded-full bg-[#e5e0d4]" />
-                <div className="h-1 rounded-full bg-[#e5e0d4]" />
+                <div className={`h-1 rounded-full ${pasoAcopio >= 2 ? 'bg-[#b43b1d]' : 'bg-[#e5e0d4]'}`} />
+                <div className={`h-1 rounded-full ${pasoAcopio >= 3 ? 'bg-[#b43b1d]' : 'bg-[#e5e0d4]'}`} />
               </div>
 
-              {/* Insignia / Badge */}
-              <div>
-                <span className="inline-block bg-[#b43b1d] text-white text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">
-                  Proponer punto de acopio
-                </span>
-                <h3 className="text-xl font-extrabold text-gray-900 mt-2">
-                  ¿Qué tipo de lugar es?
-                </h3>
-              </div>
+              {/* PASO 1: ¿Qué tipo de lugar es? */}
+              {pasoAcopio === 1 && (
+                <>
+                  <div>
+                    <span className="inline-block bg-[#b43b1d] text-white text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">
+                      Proponer punto de acopio
+                    </span>
+                    <h3 className="text-xl font-extrabold text-gray-900 mt-2">
+                      ¿Qué tipo de lugar es?
+                    </h3>
+                  </div>
 
-              {/* Grilla 2 columnas con 6 tipos de lugar */}
-              <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { id: 'Local comunal', desc: 'Espacio del barrio' },
-                  { id: 'Parroquia o iglesia', desc: 'Con permiso del encargado' },
-                  { id: 'Colegio', desc: 'Con permiso de la dirección' },
-                  { id: 'Mi casa', desc: 'Si tienes espacio' },
-                  { id: 'Bodega o negocio', desc: 'Con permiso del dueño' },
-                  { id: 'Otro lugar', desc: 'Parque, cochera...' },
-                ].map(op => {
-                  const sel = seleccionAcopio === op.id;
-                  return (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      { id: 'Local comunal', desc: 'Espacio del barrio' },
+                      { id: 'Parroquia o iglesia', desc: 'Con permiso del encargado' },
+                      { id: 'Colegio', desc: 'Con permiso de la dirección' },
+                      { id: 'Mi casa', desc: 'Si tienes espacio' },
+                      { id: 'Bodega o negocio', desc: 'Con permiso del dueño' },
+                      { id: 'Otro lugar', desc: 'Parque, cochera...' },
+                    ].map(op => {
+                      const sel = seleccionAcopio === op.id;
+                      return (
+                        <button
+                          key={op.id}
+                          type="button"
+                          onClick={() => setSeleccionAcopio(op.id)}
+                          className={`p-3 rounded-2xl text-left transition cursor-pointer border ${
+                            sel
+                              ? 'bg-white border-2 border-[#b43b1d] shadow-xs'
+                              : 'bg-white border-gray-200/90 hover:border-gray-300'
+                          }`}
+                        >
+                          <h5 className="font-bold text-sm text-gray-900">{op.id}</h5>
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{op.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-white border border-gray-200 text-xs text-gray-600 leading-snug">
+                    <Info className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                    <span>
+                      Quien propone el punto queda como responsable. Debe ser un lugar al que los vecinos puedan llegar a pie.
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPasoAcopio(2)}
+                    className="w-full mt-1 py-3.5 rounded-2xl bg-[#b43b1d] text-white font-bold text-sm hover:bg-[#9e3218] transition cursor-pointer"
+                  >
+                    Continuar
+                  </button>
+                </>
+              )}
+
+              {/* PASO 2: Datos del punto */}
+              {pasoAcopio === 2 && (
+                <div className="flex flex-col gap-3.5">
+                  <div>
+                    <span className="inline-block bg-[#fdeee9] text-[#b43b1d] text-xs font-bold px-3 py-1 rounded-full">
+                      {seleccionAcopio}
+                    </span>
+                    <h3 className="text-xl font-extrabold text-gray-900 mt-1.5">
+                      Datos del punto
+                    </h3>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-gray-800">Nombre del lugar</label>
+                    <input
+                      type="text"
+                      placeholder="Ej.: Bodega Don Lucho"
+                      value={nombreLugarAcopio}
+                      onChange={(e) => setNombreLugarAcopio(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b43b1d]"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-gray-800">Ubicación</label>
+                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-gray-200">
+                      <MapPin className="w-5 h-5 text-[#b43b1d] shrink-0" />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">Usar mi ubicación actual</p>
+                        <p className="text-xs text-gray-500">Debes estar en el lugar al registrarlo</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-gray-800">¿Qué recibe?</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Agua', 'Alimentos', 'Abrigo', 'Botiquín', 'Higiene', 'Herramientas'].map(item => {
+                        const sel = recibeAcopio.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => {
+                              if (sel) {
+                                if (recibeAcopio.length > 1) {
+                                  setRecibeAcopio(recibeAcopio.filter(x => x !== item));
+                                }
+                              } else {
+                                setRecibeAcopio([...recibeAcopio, item]);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer border ${
+                              sel
+                                ? 'bg-[#b43b1d] text-white border-[#b43b1d]'
+                                : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-800">Abre</label>
+                      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm">
+                        <input
+                          type="text"
+                          value={horaAbreAcopio}
+                          onChange={(e) => setHoraAbreAcopio(e.target.value)}
+                          className="w-16 focus:outline-none font-semibold text-gray-800"
+                        />
+                        <Clock className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-800">Cierra</label>
+                      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm">
+                        <input
+                          type="text"
+                          value={horaCierraAcopio}
+                          onChange={(e) => setHoraCierraAcopio(e.target.value)}
+                          className="w-16 focus:outline-none font-semibold text-gray-800"
+                        />
+                        <Clock className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPasoAcopio(3)}
+                    className="w-full mt-2 py-3.5 rounded-2xl bg-[#111827] text-white font-bold text-sm hover:bg-black transition cursor-pointer"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
+
+              {/* PASO 3: ¿Quién lo atiende? */}
+              {pasoAcopio === 3 && (
+                <div className="flex flex-col gap-3.5">
+                  <h3 className="text-xl font-extrabold text-gray-900">
+                    ¿Quién lo atiende?
+                  </h3>
+
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border-2 border-[#1d4f3c]">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-800 text-sm">
+                      {userName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'CM'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{userName} (tú)</p>
+                      <p className="text-xs text-gray-500">Responsable principal · te escriben por el chat</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => alert('Se enviará una invitación a tus contactos del barrio.')}
+                    className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 bg-white text-sm font-bold text-gray-900 hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    + Invitar a un co-responsable
+                  </button>
+
+                  <div className="p-3.5 rounded-2xl bg-white border border-gray-200 text-xs text-gray-600 flex flex-col gap-1.5 leading-snug">
+                    <p className="font-bold text-gray-900">Como responsable te comprometes a:</p>
+                    <p>· Recibir y guardar lo que traigan los vecinos</p>
+                    <p>· Marcar el punto como "Lleno" o "Cerrado" cuando corresponda</p>
+                    <p>· Actualizar lo que se entregó en el tablero</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmacionesAcopio(1);
+                      setPasoAcopio(4);
+                    }}
+                    className="w-full mt-1 py-3.5 rounded-2xl bg-[#b43b1d] text-white font-bold text-sm hover:bg-[#9e3218] transition cursor-pointer"
+                  >
+                    Enviar para verificar
+                  </button>
+                </div>
+              )}
+
+              {/* PASO 4: Verificación */}
+              {pasoAcopio === 4 && (
+                <div className="flex flex-col gap-4">
+                  <div className="p-4 rounded-2xl bg-white border-2 border-[#b43b1d] flex flex-col gap-3">
+                    <span className="text-[10px] font-extrabold text-[#b43b1d] tracking-wider uppercase">
+                      EN VERIFICACIÓN
+                    </span>
+                    <h4 className="text-base font-extrabold text-gray-900 leading-snug">
+                      3 vecinos deben confirmar que el lugar existe
+                    </h4>
+
+                    {/* Barra de progreso */}
+                    <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className="h-full bg-[#b43b1d] transition-all duration-300"
+                        style={{ width: `${Math.round((confirmacionesAcopio / 3) * 100)}%` }}
+                      />
+                    </div>
+
+                    <p className="text-xs font-bold text-gray-900">
+                      {confirmacionesAcopio} de 3 confirmaciones
+                    </p>
+
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      Avisamos a los vecinos que viven más cerca del punto. Mientras tanto aparece en el tablero como "Por verificar".
+                    </p>
+
                     <button
-                      key={op.id}
                       type="button"
-                      onClick={() => setSeleccionAcopio(op.id)}
-                      className={`p-3 rounded-2xl text-left transition cursor-pointer border ${
-                        sel
-                          ? 'bg-white border-2 border-[#b43b1d] shadow-xs'
-                          : 'bg-white border-gray-200/90 hover:border-gray-300'
-                      }`}
+                      onClick={() => {
+                        if (confirmacionesAcopio < 2) {
+                          setConfirmacionesAcopio(2);
+                        } else {
+                          setConfirmacionesAcopio(3);
+                          setTimeout(() => {
+                            setPasoAcopio(5);
+                          }, 350);
+                        }
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-gray-100 border border-gray-200 text-xs font-bold text-gray-900 hover:bg-gray-200 transition cursor-pointer"
                     >
-                      <h5 className="font-bold text-sm text-gray-900">{op.id}</h5>
-                      <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{op.desc}</p>
+                      Simular confirmación de un vecino
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Nota de Responsabilidad */}
-              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-white border border-gray-200 text-xs text-gray-600 leading-snug">
-                <Info className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                <span>
-                  Quien propone el punto queda como responsable. Debe ser un lugar al que los vecinos puedan llegar a pie.
-                </span>
-              </div>
+              {/* PASO 5: Listo */}
+              {pasoAcopio === 5 && (
+                <div className="flex flex-col items-center gap-3.5 text-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-[#1d4f3c]">
+                    <Check className="w-8 h-8" />
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setPuntosAcopio(prev => [
-                    ...prev,
-                    {
-                      id: Date.now().toString(),
-                      nombre: `${seleccionAcopio} - Nuevo`,
-                      distancia: '500 m',
-                      detalle: 'Abierto para emergencias · Resp. Tú',
-                      verificado: 'Verificado por 1 vecino',
-                    },
-                  ]);
-                  setModalAyuda('ninguno');
-                }}
-                className="w-full mt-1 py-3.5 rounded-2xl bg-[#b43b1d] text-white font-bold text-sm hover:bg-[#9e3218] transition cursor-pointer"
-              >
-                Continuar
-              </button>
+                  <h3 className="text-xl font-extrabold text-gray-900">
+                    Punto de acopio verificado
+                  </h3>
+
+                  <div className="w-full flex items-start gap-3 p-3.5 rounded-2xl bg-white border border-gray-200 text-left">
+                    <MapPin className="w-5 h-5 text-[#b43b1d] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">
+                        {nombreLugarAcopio.trim() || seleccionAcopio} · Mz. D
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {recibeAcopio.join(', ')} · {horaAbreAcopio} a {horaCierraAcopio}
+                      </p>
+                      <p className="text-xs font-bold text-emerald-800 mt-1">
+                        Verificado por 3 vecinos · Resp. {userName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500 px-2 leading-relaxed">
+                    Ya aparece en el tablero y en el mapa. Puedes cambiar su estado cuando quieras.
+                  </p>
+
+                  {/* Toggle [ Abierto | Lleno | Cerrado ] */}
+                  <div className="w-full grid grid-cols-3 gap-2">
+                    {(['Abierto', 'Lleno', 'Cerrado'] as const).map(st => {
+                      const sel = estadoAcopio === st;
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setEstadoAcopio(st)}
+                          className={`py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                            sel && st === 'Abierto'
+                              ? 'bg-[#1d4f3c] text-white border-[#1d4f3c]'
+                              : sel && st === 'Lleno'
+                              ? 'bg-amber-600 text-white border-amber-600'
+                              : sel && st === 'Cerrado'
+                              ? 'bg-gray-800 text-white border-gray-800'
+                              : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {st}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nuevoNombre = nombreLugarAcopio.trim() || seleccionAcopio;
+                      setPuntosAcopio(prev => [
+                        ...prev,
+                        {
+                          id: Date.now().toString(),
+                          nombre: nuevoNombre,
+                          distancia: '450 m',
+                          detalle: `${recibeAcopio.slice(0, 2).join(' y ')} · ${horaAbreAcopio} - ${horaCierraAcopio} · Resp. ${userName}${
+                            estadoAcopio !== 'Abierto' ? ' (' + estadoAcopio + ')' : ''
+                          }`,
+                          verificado: 'Verificado por 3 vecinos',
+                        },
+                      ]);
+                      setModalAyuda('ninguno');
+                      setPasoAcopio(1);
+                      setConfirmacionesAcopio(1);
+                      setNombreLugarAcopio('');
+                    }}
+                    className="w-full mt-1 py-3.5 rounded-2xl bg-[#111827] text-white font-bold text-sm hover:bg-black transition cursor-pointer"
+                  >
+                    Volver al tablero
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

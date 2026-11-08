@@ -32,6 +32,7 @@ interface Props {
   onBack?: () => void;
   userQuadrant?: string;
   userAddress?: string;
+  userName?: string;
   initialScreen?: PantallaEmergenciaId;
   onStepModeChange?: (isStepScreen: boolean) => void;
   onEmergencyActiveChange?: (isActive: boolean) => void;
@@ -93,6 +94,7 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
   onBack,
   userQuadrant = 'Urb. Los Pinos, Surco',
   userAddress = 'Calle 4, Los Pinos',
+  userName = 'Carlos M.',
   initialScreen = '1_inactiva',
   onStepModeChange,
   onEmergencyActiveChange,
@@ -121,6 +123,13 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
   const [seleccionReportar, setSeleccionReportar] = useState<string>('Agua');
   const [seleccionOfrecer, setSeleccionOfrecer] = useState<string>('Botiquín');
   const [seleccionAcopio, setSeleccionAcopio] = useState<string>('Local comunal');
+  const [pasoAcopio, setPasoAcopio] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [nombreLugarAcopio, setNombreLugarAcopio] = useState<string>('');
+  const [recibeAcopio, setRecibeAcopio] = useState<string[]>(['Agua', 'Alimentos']);
+  const [horaAbreAcopio, setHoraAbreAcopio] = useState<string>('08:00');
+  const [horaCierraAcopio, setHoraCierraAcopio] = useState<string>('20:00');
+  const [confirmacionesAcopio, setConfirmacionesAcopio] = useState<number>(1);
+  const [estadoAcopio, setEstadoAcopio] = useState<'Abierto' | 'Lleno' | 'Cerrado'>('Abierto');
 
   // Items de Necesidad (Figma E7: Tablero de ayuda)
   const [itemsNecesidad, setItemsNecesidad] = useState<ItemTablero[]>([
@@ -834,7 +843,12 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
                 <Text style={styles.acopioSectionTitle}>Puntos de acopio</Text>
                 <TouchableOpacity
                   style={styles.proponerPuntoBtn}
-                  onPress={() => setModalAyuda('proponer_acopio')}
+                  onPress={() => {
+                  setPasoAcopio(1);
+                  setConfirmacionesAcopio(1);
+                  setEstadoAcopio('Abierto');
+                  setModalAyuda('proponer_acopio');
+                }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.proponerPuntoText}>+ Proponer punto</Text>
@@ -1088,94 +1102,418 @@ export const DirectorioEmergenciaScreen: React.FC<Props> = ({
           </Modal>
 
           {/* ==================================================================== */}
-          {/* MODAL 3: PROPONER PUNTO DE ACOPIO (Paso 1 de 3) */}
+          {/* MODAL 3: PROPONER PUNTO DE ACOPIO (Flujo completo 5 pasos Figma) */}
           {/* ==================================================================== */}
           <Modal
             visible={modalAyuda === 'proponer_acopio'}
             animationType="slide"
             transparent
-            onRequestClose={() => setModalAyuda('ninguno')}
+            onRequestClose={() => {
+              setModalAyuda('ninguno');
+              setPasoAcopio(1);
+            }}
           >
             <View style={styles.modalBackdrop}>
               <View style={styles.modalSheetContainer}>
+                {/* 1. Header Row (X, Paso / Título, Atrás) */}
                 <View style={styles.modalHeaderRow}>
                   <TouchableOpacity
                     style={styles.modalCloseBtn}
-                    onPress={() => setModalAyuda('ninguno')}
+                    onPress={() => {
+                      setModalAyuda('ninguno');
+                      setPasoAcopio(1);
+                    }}
                     activeOpacity={0.7}
                   >
                     <Feather name="x" size={18} color="#4b5563" />
                   </TouchableOpacity>
-                  <Text style={styles.modalStepText}>Paso 1 de 3</Text>
+
+                  <Text style={styles.modalStepText}>
+                    {pasoAcopio === 1 && 'Paso 1 de 3'}
+                    {pasoAcopio === 2 && 'Paso 2 de 3'}
+                    {pasoAcopio === 3 && 'Paso 3 de 3'}
+                    {pasoAcopio === 4 && 'Verificación'}
+                    {pasoAcopio === 5 && 'Listo'}
+                  </Text>
+
+                  {pasoAcopio === 2 ? (
+                    <TouchableOpacity onPress={() => setPasoAcopio(1)} activeOpacity={0.7}>
+                      <Text style={styles.modalAtrasRedText}>Atrás</Text>
+                    </TouchableOpacity>
+                  ) : pasoAcopio === 3 ? (
+                    <TouchableOpacity onPress={() => setPasoAcopio(2)} activeOpacity={0.7}>
+                      <Text style={styles.modalAtrasRedText}>Atrás</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ width: 32 }} />
+                  )}
                 </View>
 
-                {/* Barra de progreso 3 segmentos */}
+                {/* 2. Barra de progreso de 3 segmentos */}
                 <View style={styles.modalProgressBarRow}>
                   <View style={[styles.modalProgressSegment, { backgroundColor: '#b43b1d' }]} />
-                  <View style={styles.modalProgressSegment} />
-                  <View style={styles.modalProgressSegment} />
+                  <View
+                    style={[
+                      styles.modalProgressSegment,
+                      { backgroundColor: pasoAcopio >= 2 ? '#b43b1d' : '#e5e0d4' },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.modalProgressSegment,
+                      { backgroundColor: pasoAcopio >= 3 ? '#b43b1d' : '#e5e0d4' },
+                    ]}
+                  />
                 </View>
 
-                {/* Badge e Identidad */}
-                <View style={styles.modalBadgeWrap}>
-                  <View style={[styles.modalPillBadge, { backgroundColor: '#b43b1d' }]}>
-                    <Text style={styles.modalPillBadgeText}>PROPONER PUNTO DE ACOPIO</Text>
+                {/* 3. Contenido según el paso */}
+
+                {/* --- PASO 1: ¿Qué tipo de lugar es? --- */}
+                {pasoAcopio === 1 && (
+                  <View style={{ gap: 14 }}>
+                    <View style={styles.modalBadgeWrap}>
+                      <View style={[styles.modalPillBadge, { backgroundColor: '#b43b1d' }]}>
+                        <Text style={styles.modalPillBadgeText}>PROPONER PUNTO DE ACOPIO</Text>
+                      </View>
+                      <Text style={styles.modalMainTitle}>¿Qué tipo de lugar es?</Text>
+                    </View>
+
+                    <View style={styles.modalGrid2Cols}>
+                      {[
+                        { id: 'Local comunal', desc: 'Espacio del barrio' },
+                        { id: 'Parroquia o iglesia', desc: 'Con permiso del encargado' },
+                        { id: 'Colegio', desc: 'Con permiso de la dirección' },
+                        { id: 'Mi casa', desc: 'Si tienes espacio' },
+                        { id: 'Bodega o negocio', desc: 'Con permiso del dueño' },
+                        { id: 'Otro lugar', desc: 'Parque, cochera...' },
+                      ].map(op => {
+                        const sel = seleccionAcopio === op.id;
+                        return (
+                          <TouchableOpacity
+                            key={op.id}
+                            style={[styles.modalOptionCard, sel && styles.modalOptionCardSelectedRed]}
+                            onPress={() => setSeleccionAcopio(op.id)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.modalOptionTitle}>{op.id}</Text>
+                            <Text style={styles.modalOptionDesc}>{op.desc}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <View style={styles.modalInfoNoticeBox}>
+                      <Feather name="info" size={16} color="#6b7280" style={{ marginTop: 2 }} />
+                      <Text style={styles.modalInfoNoticeText}>
+                        Quien propone el punto queda como responsable. Debe ser un lugar al que los vecinos puedan llegar a pie.
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.modalSubmitBtn, { backgroundColor: '#b43b1d' }]}
+                      onPress={() => setPasoAcopio(2)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.modalSubmitBtnText}>Continuar</Text>
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.modalMainTitle}>¿Qué tipo de lugar es?</Text>
-                </View>
+                )}
 
-                {/* Grilla 2 columnas con 6 lugares */}
-                <View style={styles.modalGrid2Cols}>
-                  {[
-                    { id: 'Local comunal', desc: 'Espacio del barrio' },
-                    { id: 'Parroquia o iglesia', desc: 'Con permiso del encargado' },
-                    { id: 'Colegio', desc: 'Con permiso de la dirección' },
-                    { id: 'Mi casa', desc: 'Si tienes espacio' },
-                    { id: 'Bodega o negocio', desc: 'Con permiso del dueño' },
-                    { id: 'Otro lugar', desc: 'Parque, cochera...' },
-                  ].map(op => {
-                    const sel = seleccionAcopio === op.id;
-                    return (
+                {/* --- PASO 2: Datos del punto --- */}
+                {pasoAcopio === 2 && (
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+                    <View style={styles.modalBadgeWrap}>
+                      <View style={styles.modalPillSoftPeach}>
+                        <Text style={styles.modalPillSoftPeachText}>{seleccionAcopio}</Text>
+                      </View>
+                      <Text style={styles.modalMainTitle}>Datos del punto</Text>
+                    </View>
+
+                    <View style={styles.formGroup}>
+                      <Text style={styles.formLabelText}>Nombre del lugar</Text>
+                      <TextInput
+                        style={styles.modalTextInputBox}
+                        placeholder="Ej.: Bodega Don Lucho"
+                        placeholderTextColor="#9ca3af"
+                        value={nombreLugarAcopio}
+                        onChangeText={setNombreLugarAcopio}
+                      />
+                    </View>
+
+                    <View style={styles.formGroup}>
+                      <Text style={styles.formLabelText}>Ubicación</Text>
+                      <View style={styles.locationSelectorCard}>
+                        <Feather name="map-pin" size={18} color="#b43b1d" style={{ marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.locationTitleText}>Usar mi ubicación actual</Text>
+                          <Text style={styles.locationSubText}>Debes estar en el lugar al registrarlo</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.formGroup}>
+                      <Text style={styles.formLabelText}>¿Qué recibe?</Text>
+                      <View style={styles.chipsWrapRow}>
+                        {['Agua', 'Alimentos', 'Abrigo', 'Botiquín', 'Higiene', 'Herramientas'].map(item => {
+                          const isSelected = recibeAcopio.includes(item);
+                          return (
+                            <TouchableOpacity
+                              key={item}
+                              style={[styles.chipPill, isSelected && styles.chipPillSelected]}
+                              onPress={() => {
+                                if (isSelected) {
+                                  if (recibeAcopio.length > 1) {
+                                    setRecibeAcopio(recibeAcopio.filter(x => x !== item));
+                                  }
+                                } else {
+                                  setRecibeAcopio([...recibeAcopio, item]);
+                                }
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={[styles.chipPillText, isSelected && styles.chipPillTextSelected]}>
+                                {item}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View style={styles.timeInputRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.formLabelText}>Abre</Text>
+                        <View style={styles.timeBox}>
+                          <TextInput
+                            style={styles.timeInputText}
+                            value={horaAbreAcopio}
+                            onChangeText={setHoraAbreAcopio}
+                            placeholder="08:00"
+                            placeholderTextColor="#9ca3af"
+                          />
+                          <Feather name="clock" size={16} color="#6b7280" />
+                        </View>
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.formLabelText}>Cierra</Text>
+                        <View style={styles.timeBox}>
+                          <TextInput
+                            style={styles.timeInputText}
+                            value={horaCierraAcopio}
+                            onChangeText={setHoraCierraAcopio}
+                            placeholder="20:00"
+                            placeholderTextColor="#9ca3af"
+                          />
+                          <Feather name="clock" size={16} color="#6b7280" />
+                        </View>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.modalSubmitBtn, { backgroundColor: '#111827', marginTop: 8 }]}
+                      onPress={() => setPasoAcopio(3)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.modalSubmitBtnText}>Siguiente</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+                )}
+
+                {/* --- PASO 3: ¿Quién lo atiende? --- */}
+                {pasoAcopio === 3 && (
+                  <View style={{ gap: 14 }}>
+                    <Text style={styles.modalMainTitle}>¿Quién lo atiende?</Text>
+
+                    {/* Tarjeta Responsable Principal con borde verde */}
+                    <View style={styles.responsibleCardContainer}>
+                      <View style={styles.responsibleAvatarCircle}>
+                        <Text style={styles.responsibleAvatarInitials}>
+                          {userName
+                            .split(' ')
+                            .filter(Boolean)
+                            .map(n => n[0])
+                            .slice(0, 2)
+                            .join('')
+                            .toUpperCase() || 'CM'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.responsibleNameText}>{userName || 'Carlos M.'} (tú)</Text>
+                        <Text style={styles.responsibleRoleSubtext}>
+                          Responsable principal · te escriben por el chat
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Botón invitar co-responsable punteado */}
+                    <TouchableOpacity
+                      style={styles.dashedInviteBtn}
+                      activeOpacity={0.8}
+                      onPress={() => Alert.alert('Invitar', 'Se enviará una invitación a tus contactos del barrio.')}
+                    >
+                      <Text style={styles.dashedInviteBtnText}>+ Invitar a un co-responsable</Text>
+                    </TouchableOpacity>
+
+                    {/* Caja de compromisos */}
+                    <View style={styles.commitmentsBox}>
+                      <Text style={styles.commitmentsTitle}>Como responsable te comprometes a:</Text>
+                      <Text style={styles.commitmentsBullet}>· Recibir y guardar lo que traigan los vecinos</Text>
+                      <Text style={styles.commitmentsBullet}>
+                        · Marcar el punto como "Lleno" o "Cerrado" cuando corresponda
+                      </Text>
+                      <Text style={styles.commitmentsBullet}>· Actualizar lo que se entregó en el tablero</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.modalSubmitBtn, { backgroundColor: '#b43b1d', marginTop: 4 }]}
+                      onPress={() => {
+                        setConfirmacionesAcopio(1);
+                        setPasoAcopio(4);
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.modalSubmitBtnText}>Enviar para verificar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* --- PASO 4: Verificación --- */}
+                {pasoAcopio === 4 && (
+                  <View style={{ gap: 16 }}>
+                    <View style={styles.verificationCardBox}>
+                      <Text style={styles.verificationStatusTag}>EN VERIFICACIÓN</Text>
+                      <Text style={styles.verificationCardTitle}>
+                        3 vecinos deben confirmar que el lugar existe
+                      </Text>
+
+                      {/* Barra de progreso de confirmaciones */}
+                      <View style={styles.verificationTrack}>
+                        <View
+                          style={[
+                            styles.verificationFill,
+                            { width: `${Math.round((confirmacionesAcopio / 3) * 100)}%` as any },
+                          ]}
+                        />
+                      </View>
+
+                      <Text style={styles.verificationCountText}>
+                        {confirmacionesAcopio} de 3 confirmaciones
+                      </Text>
+
+                      <Text style={styles.verificationDescText}>
+                        Avisamos a los vecinos que viven más cerca del punto. Mientras tanto aparece en el tablero como "Por verificar".
+                      </Text>
+
                       <TouchableOpacity
-                        key={op.id}
-                        style={[styles.modalOptionCard, sel && styles.modalOptionCardSelectedRed]}
-                        onPress={() => setSeleccionAcopio(op.id)}
+                        style={styles.simulateVerificationBtn}
+                        onPress={() => {
+                          if (confirmacionesAcopio < 2) {
+                            setConfirmacionesAcopio(2);
+                          } else {
+                            setConfirmacionesAcopio(3);
+                            setTimeout(() => {
+                              setPasoAcopio(5);
+                            }, 350);
+                          }
+                        }}
                         activeOpacity={0.8}
                       >
-                        <Text style={styles.modalOptionTitle}>{op.id}</Text>
-                        <Text style={styles.modalOptionDesc}>{op.desc}</Text>
+                        <Text style={styles.simulateVerificationBtnText}>
+                          Simular confirmación de un vecino
+                        </Text>
                       </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                    </View>
+                  </View>
+                )}
 
-                {/* Nota de Responsabilidad */}
-                <View style={styles.modalInfoNoticeBox}>
-                  <Feather name="info" size={16} color="#6b7280" style={{ marginTop: 2 }} />
-                  <Text style={styles.modalInfoNoticeText}>
-                    Quien propone el punto queda como responsable. Debe ser un lugar al que los vecinos puedan llegar a pie.
-                  </Text>
-                </View>
+                {/* --- PASO 5: Listo --- */}
+                {pasoAcopio === 5 && (
+                  <View style={{ gap: 16 }}>
+                    <View style={styles.successBigCircle}>
+                      <Feather name="check" size={32} color="#1d4f3c" />
+                    </View>
 
-                <TouchableOpacity
-                  style={[styles.modalSubmitBtn, { backgroundColor: '#b43b1d' }]}
-                  onPress={() => {
-                    setPuntosAcopio(prev => [
-                      ...prev,
-                      {
-                        id: Date.now().toString(),
-                        nombre: `${seleccionAcopio} - Nuevo`,
-                        distancia: '450 m',
-                        detalle: 'Abierto para emergencias · Resp. Tú',
-                        verificado: 'Verificado por 1 vecino',
-                      },
-                    ]);
-                    setModalAyuda('ninguno');
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.modalSubmitBtnText}>Continuar</Text>
-                </TouchableOpacity>
+                    <Text style={[styles.modalMainTitle, { textAlign: 'center' }]}>
+                      Punto de acopio verificado
+                    </Text>
+
+                    {/* Resumen del punto de acopio creado */}
+                    <View style={styles.verifiedSummaryCard}>
+                      <Feather name="map-pin" size={22} color="#b43b1d" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.verifiedPlaceTitle}>
+                          {nombreLugarAcopio.trim() || seleccionAcopio} · Mz. D
+                        </Text>
+                        <Text style={styles.verifiedPlaceDetails}>
+                          {recibeAcopio.join(', ')} · {horaAbreAcopio} a {horaCierraAcopio}
+                        </Text>
+                        <Text style={styles.verifiedPlaceConfirmed}>
+                          Verificado por 3 vecinos · Resp. {userName || 'Carlos M.'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.verifiedNoticeFootText}>
+                      Ya aparece en el tablero y en el mapa. Puedes cambiar su estado cuando quieras.
+                    </Text>
+
+                    {/* Botones de estado: [ Abierto | Lleno | Cerrado ] */}
+                    <View style={styles.statusButtonsRow}>
+                      {(['Abierto', 'Lleno', 'Cerrado'] as const).map(st => {
+                        const isSelected = estadoAcopio === st;
+                        return (
+                          <TouchableOpacity
+                            key={st}
+                            style={[
+                              styles.statusToggleBtn,
+                              isSelected && st === 'Abierto' && styles.statusBtnAbiertoActive,
+                              isSelected && st === 'Lleno' && styles.statusBtnLlenoActive,
+                              isSelected && st === 'Cerrado' && styles.statusBtnCerradoActive,
+                            ]}
+                            onPress={() => setEstadoAcopio(st)}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={[
+                                styles.statusToggleBtnText,
+                                isSelected && styles.statusToggleBtnTextActive,
+                              ]}
+                            >
+                              {st}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.modalSubmitBtn, { backgroundColor: '#111827', marginTop: 4 }]}
+                      onPress={() => {
+                        const nuevoNombre = nombreLugarAcopio.trim() || seleccionAcopio;
+                        setPuntosAcopio(prev => [
+                          ...prev,
+                          {
+                            id: Date.now().toString(),
+                            nombre: nuevoNombre,
+                            distancia: '450 m',
+                            detalle: `${recibeAcopio.slice(0, 2).join(' y ')} · ${horaAbreAcopio} - ${horaCierraAcopio} · Resp. ${userName || 'Tú'}${
+                              estadoAcopio !== 'Abierto' ? ' (' + estadoAcopio + ')' : ''
+                            }`,
+                            verificado: 'Verificado por 3 vecinos',
+                          },
+                        ]);
+                        setModalAyuda('ninguno');
+                        setPasoAcopio(1);
+                        setConfirmacionesAcopio(1);
+                        setNombreLugarAcopio('');
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.modalSubmitBtnText}>Volver al tablero</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
           </Modal>
@@ -3139,5 +3477,306 @@ const styles = StyleSheet.create({
   acopioDividerTop: {
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
+  },
+  modalAtrasRedText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#b43b1d',
+  },
+  modalPillSoftPeach: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#fdeee9',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  modalPillSoftPeachText: {
+    color: '#b43b1d',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  formGroup: {
+    gap: 6,
+  },
+  formLabelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalTextInputBox: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#111827',
+  },
+  locationSelectorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+  },
+  locationTitleText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  locationSubText: {
+    fontSize: 11.5,
+    color: '#6b7280',
+    marginTop: 1,
+  },
+  chipsWrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chipPill: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipPillSelected: {
+    backgroundColor: '#b43b1d',
+    borderColor: '#b43b1d',
+  },
+  chipPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  chipPillTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  timeInputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  timeInputText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+  },
+  responsibleCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#1d4f3c',
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+  },
+  responsibleAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  responsibleAvatarInitials: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1e40af',
+  },
+  responsibleNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  responsibleRoleSubtext: {
+    fontSize: 11.5,
+    color: '#6b7280',
+    marginTop: 1,
+  },
+  dashedInviteBtn: {
+    borderWidth: 1.5,
+    borderColor: '#9ca3af',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  dashedInviteBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  commitmentsBox: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 18,
+    padding: 14,
+    gap: 6,
+  },
+  commitmentsTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  commitmentsBullet: {
+    fontSize: 11.5,
+    color: '#4b5563',
+    lineHeight: 16,
+  },
+  verificationCardBox: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#b43b1d',
+    borderRadius: 22,
+    padding: 18,
+    gap: 12,
+  },
+  verificationStatusTag: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#b43b1d',
+    letterSpacing: 0.5,
+  },
+  verificationCardTitle: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#111827',
+    lineHeight: 20,
+  },
+  verificationTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f3f4f6',
+    overflow: 'hidden',
+  },
+  verificationFill: {
+    height: '100%',
+    backgroundColor: '#b43b1d',
+    borderRadius: 4,
+  },
+  verificationCountText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  verificationDescText: {
+    fontSize: 11.5,
+    color: '#6b7280',
+    lineHeight: 16,
+  },
+  simulateVerificationBtn: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  simulateVerificationBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  successBigCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#e6f4ea',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 4,
+  },
+  verifiedSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+  },
+  verifiedPlaceTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  verifiedPlaceDetails: {
+    fontSize: 11.5,
+    color: '#6b7280',
+    marginTop: 1,
+  },
+  verifiedPlaceConfirmed: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0e6251',
+    marginTop: 3,
+  },
+  verifiedNoticeFootText: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 8,
+  },
+  statusButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statusToggleBtn: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusToggleBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  statusToggleBtnTextActive: {
+    color: '#ffffff',
+  },
+  statusBtnAbiertoActive: {
+    backgroundColor: '#1d4f3c',
+    borderColor: '#1d4f3c',
+  },
+  statusBtnLlenoActive: {
+    backgroundColor: '#d97706',
+    borderColor: '#d97706',
+  },
+  statusBtnCerradoActive: {
+    backgroundColor: '#374151',
+    borderColor: '#374151',
   },
 });
