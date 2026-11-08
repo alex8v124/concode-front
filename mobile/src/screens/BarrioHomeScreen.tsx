@@ -13,7 +13,7 @@ import {
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { mobileApiService } from '../services/api';
 import { BarrioMapaScreen } from './BarrioMapaScreen';
-import { MensajesScreen } from './MensajesScreen';
+import { MensajesScreen, TargetChatContact } from './MensajesScreen';
 import { FavorDetalleScreen } from './FavorDetalleScreen';
 import { PublicarFlowScreen, PublicacionData } from './PublicarFlowScreen';
 import { DirectorioEmergenciaScreen } from './DirectorioEmergenciaScreen';
@@ -149,11 +149,19 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   const [selectedVecino, setSelectedVecino] = useState<VecinoPerfilData | null>(null);
   const [modalEscribirResenaVisible, setModalEscribirResenaVisible] = useState(false);
   const [ocultarBarraInferior, setOcultarBarraInferior] = useState(false);
-  const [emergenciaActiva, setEmergenciaActiva] = useState(false);
+  const [emergenciaActiva, setEmergenciaActiva] = useState(true);
+  const [abrirDirectoTablero, setAbrirDirectoTablero] = useState(false);
+  const [targetChatContact, setTargetChatContact] = useState<TargetChatContact | null>(null);
 
   const cuadranteMostrado = userData.quadrant || 'Urb. Los Pinos, Surco';
 
   useEffect(() => {
+    mobileApiService.getEstadoTablero(cuadranteMostrado).then((est) => {
+      if (est && typeof est.activo === 'boolean') {
+        setEmergenciaActiva(est.activo);
+      }
+    }).catch(() => {});
+
     mobileApiService.listarPublicaciones().then((data) => {
       if (Array.isArray(data) && data.length > 0) {
         const mapped: ServicioItem[] = data.map((p: any) => ({
@@ -217,6 +225,12 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
           onBack={() => setSelectedVecino(null)}
           onOpenEscribirResena={() => setModalEscribirResenaVisible(true)}
           onContactar={() => {
+            setTargetChatContact({
+              id: selectedVecino.id,
+              name: selectedVecino.nombre,
+              initials: selectedVecino.iniciales,
+              subtitle: `Servicio · ${selectedVecino.rubro}`,
+            });
             setSelectedVecino(null);
             setVistaSecundaria('mensajes');
           }}
@@ -275,7 +289,15 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
 
   // Si está en la pantalla de Mensajes
   if (vistaSecundaria === 'mensajes') {
-    return <MensajesScreen onBack={() => setVistaSecundaria('ninguna')} />;
+    return (
+      <MensajesScreen
+        initialTargetContact={targetChatContact}
+        onBack={() => {
+          setTargetChatContact(null);
+          setVistaSecundaria('ninguna');
+        }}
+      />
+    );
   }
 
   // Si está en el Detalle de Favor
@@ -283,7 +305,17 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
     return (
       <FavorDetalleScreen 
         onBack={() => setVistaSecundaria('ninguna')} 
-        onPedirPrestado={() => setVistaSecundaria('mensajes')} 
+        onPedirPrestado={() => {
+          setTargetChatContact({
+            id: '2',
+            name: 'Julio R.',
+            initials: 'JR',
+            subtitle: 'Favor · Presto taladro',
+            avatarBg: '#e0e7fb',
+            avatarColor: '#2b4290',
+          });
+          setVistaSecundaria('mensajes');
+        }} 
       />
     );
   }
@@ -343,9 +375,16 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
         <DirectorioEmergenciaScreen 
           userQuadrant={cuadranteMostrado}
           userAddress={userData.address}
-          onBack={() => setTabActiva('inicio')}
+          initialScreen={abrirDirectoTablero ? '7_tablero' : emergenciaActiva ? '6_activa' : '1_inactiva'}
+          onBack={() => {
+            setAbrirDirectoTablero(false);
+            setTabActiva('inicio');
+          }}
           onStepModeChange={setOcultarBarraInferior}
-          onEmergencyActiveChange={setEmergenciaActiva}
+          onEmergencyActiveChange={(isActive) => {
+            setEmergenciaActiva(isActive);
+            if (!isActive) setAbrirDirectoTablero(false);
+          }}
         />
       ) : tabActiva === 'actividad' ? (
         <MiActividadScreen 
@@ -372,7 +411,10 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             <TouchableOpacity 
               style={styles.chatButton} 
               activeOpacity={0.85}
-              onPress={() => setVistaSecundaria('mensajes')}
+              onPress={() => {
+                setTargetChatContact(null);
+                setVistaSecundaria('mensajes');
+              }}
             >
               <Feather name="message-square" size={19} color="#ffffff" />
               <View style={styles.chatBadge}>
@@ -428,12 +470,37 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
             <Feather name="search" size={18} color="#9ca3af" />
             <TextInput 
               style={styles.searchInput}
-              placeholder="Busca gasfitero, profesor de inglés..."
+              placeholder={
+                categoriaActiva === 'favores'
+                  ? 'Busca escalera, ropa, paseo...'
+                  : 'Busca gasfitero, profesor de inglés...'
+              }
               placeholderTextColor="#9ca3af"
               value={busqueda}
               onChangeText={setBusqueda}
             />
           </View>
+
+          {/* Banner Rojo: Tablero de ayuda activo (cuando hay emergencia activa) */}
+          {emergenciaActiva && (
+            <TouchableOpacity
+              style={styles.activeHelpBoardBanner}
+              activeOpacity={0.85}
+              onPress={() => {
+                setAbrirDirectoTablero(true);
+                setTabActiva('emergencia');
+              }}
+            >
+              <Feather name="alert-triangle" size={22} color="#ffffff" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.activeHelpBoardTitle}>Tablero de ayuda activo</Text>
+                <Text style={styles.activeHelpBoardSub}>
+                  Lluvias intensas · 6 necesidades urgentes
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="#ffffff" />
+            </TouchableOpacity>
+          )}
 
           {/* Encabezado de Sección: Cerca de ti */}
           <View style={styles.sectionHeader}>
@@ -813,6 +880,27 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#111827',
+  },
+  activeHelpBoardBanner: {
+    backgroundColor: '#b43b1d',
+    borderRadius: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+  },
+  activeHelpBoardTitle: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  activeHelpBoardSub: {
+    color: '#f9ebe6',
+    fontSize: 12.5,
+    fontWeight: '500',
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',

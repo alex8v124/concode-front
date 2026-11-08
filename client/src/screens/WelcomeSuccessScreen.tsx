@@ -28,11 +28,11 @@ export const WelcomeSuccessScreen: React.FC<WelcomeSuccessScreenProps> = ({
       {/* Contenido Central de Éxito (Figma 8 · Cuenta creada) */}
       <div className="flex flex-col items-center justify-center my-auto">
         
-        {/* Logo Emblema DeBarrio con Check de Éxito */}
+        {/* Logo Emblema Ayllu con Check de Éxito */}
         <div className="relative mb-5 flex items-center justify-center">
           <img 
             src="/logo-symbol.png" 
-            alt="DeBarrio" 
+            alt="Ayllu" 
             className="w-20 h-20 object-contain drop-shadow-sm"
           />
           <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-brand-800 border-2 border-white flex items-center justify-center shadow-xs">

@@ -217,7 +217,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       if (e instanceof ErrorApi) {
         if (modo === 'ALTA' && (e.codigo === 'DNI_REGISTRADO' || e.codigo === 'MENOR_DE_EDAD')) {
           // ¡Bloquear doble registro!
-          setMensajeError(e.message || 'Este DNI ya está registrado en DeBarrio. Inicia sesión.');
+          setMensajeError(e.message || 'Este DNI ya está registrado en Ayllu. Inicia sesión.');
           setEstado('error');
           return;
         }

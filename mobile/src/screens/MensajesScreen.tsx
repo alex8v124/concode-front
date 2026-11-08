@@ -10,9 +10,19 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { mobileApiService } from '../services/api';
 
+export interface TargetChatContact {
+  id?: string;
+  name: string;
+  initials: string;
+  subtitle: string;
+  avatarBg?: string;
+  avatarColor?: string;
+}
+
 interface Props {
   onBack: () => void;
   onSelectChat?: (chatId: string) => void;
+  initialTargetContact?: TargetChatContact | null;
 }
 
 interface ChatItem {
@@ -86,11 +96,28 @@ const CHATS_MOCK: ChatItem[] = [
 
 const CHAT_FILTERS = ['Todos', 'Servicios', 'Favores', 'Grupos'];
 
-export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
+export const MensajesScreen: React.FC<Props> = ({ onBack, initialTargetContact }) => {
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
   const [chatsList, setChatsList] = useState<ChatItem[]>(CHATS_MOCK);
-  const [selectedChat, setSelectedChat] = useState<ChatItem | null>(null);
+  const [selectedChat, setSelectedChat] = useState<ChatItem | null>(() => {
+    if (!initialTargetContact) return null;
+    const firstWord = initialTargetContact.name.split(' ')[0].toLowerCase();
+    const existing = CHATS_MOCK.find(
+      c => c.id === initialTargetContact.id || c.name.toLowerCase().includes(firstWord)
+    );
+    if (existing) return existing;
+    return {
+      id: initialTargetContact.id || `chat-${initialTargetContact.name}`,
+      avatarInitials: initialTargetContact.initials || 'VC',
+      avatarBg: initialTargetContact.avatarBg || '#d6eee2',
+      avatarColor: initialTargetContact.avatarColor || '#144e40',
+      name: initialTargetContact.name,
+      subtitle: initialTargetContact.subtitle || 'Servicio vecinal',
+      lastMessage: 'Conversación iniciada',
+      time: 'Ahora',
+    };
+  });
   const [mensajeTexto, setMensajeTexto] = useState('');
   const [mensajesThread, setMensajesThread] = useState<Record<string, Array<{ id: string; texto: string; remitente: 'yo' | 'otro'; hora: string }>>>({
     '1': [
@@ -104,6 +131,32 @@ export const MensajesScreen: React.FC<Props> = ({ onBack }) => {
       { id: 'm3', texto: 'Te lo dejo en la portería el sábado temprano.', remitente: 'otro', hora: '21:40' }
     ]
   });
+
+  useEffect(() => {
+    if (!initialTargetContact) return;
+    const firstWord = initialTargetContact.name.split(' ')[0].toLowerCase();
+    setChatsList(prev => {
+      const existing = prev.find(
+        c => c.id === initialTargetContact.id || c.name.toLowerCase().includes(firstWord)
+      );
+      if (existing) {
+        setSelectedChat(existing);
+        return prev;
+      }
+      const nuevoChat: ChatItem = {
+        id: initialTargetContact.id || `chat-${initialTargetContact.name}`,
+        avatarInitials: initialTargetContact.initials || 'VC',
+        avatarBg: initialTargetContact.avatarBg || '#d6eee2',
+        avatarColor: initialTargetContact.avatarColor || '#144e40',
+        name: initialTargetContact.name,
+        subtitle: initialTargetContact.subtitle || 'Servicio vecinal',
+        lastMessage: 'Conversación iniciada',
+        time: 'Ahora',
+      };
+      setSelectedChat(nuevoChat);
+      return [nuevoChat, ...prev];
+    });
+  }, [initialTargetContact]);
 
   useEffect(() => {
     mobileApiService.listarConversaciones().then((data) => {

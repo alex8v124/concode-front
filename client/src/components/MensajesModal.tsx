@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Search, Lock, Shield, Send } from 'lucide-react';
+
+export interface TargetChatContactWeb {
+  id?: string;
+  name: string;
+  initials: string;
+  subtitle: string;
+}
 
 interface MensajesModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialChatId?: string;
+  targetContact?: TargetChatContactWeb | null;
 }
 
 interface ChatItem {
@@ -81,13 +89,45 @@ const CHAT_FILTERS = ['Todos', 'Servicios', 'Favores', 'Grupos'];
 export const MensajesModal: React.FC<MensajesModalProps> = ({
   isOpen,
   onClose,
-  initialChatId
+  initialChatId,
+  targetContact,
 }) => {
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [chatsList, setChatsList] = useState<ChatItem[]>(CHATS_MOCK);
   const [selectedChat, setSelectedChat] = useState<ChatItem | null>(
     initialChatId ? CHATS_MOCK.find(c => c.id === initialChatId) || null : null
   );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!targetContact) {
+      setSelectedChat(initialChatId ? CHATS_MOCK.find(c => c.id === initialChatId) || null : null);
+      return;
+    }
+    const firstWord = targetContact.name.split(' ')[0].toLowerCase();
+    setChatsList(prev => {
+      const existing = prev.find(
+        c => c.id === targetContact.id || c.name.toLowerCase().includes(firstWord)
+      );
+      if (existing) {
+        setSelectedChat(existing);
+        return prev;
+      }
+      const nuevo: ChatItem = {
+        id: targetContact.id || `chat-${targetContact.name}`,
+        avatarInitials: targetContact.initials || 'VC',
+        avatarBg: 'bg-emerald-100',
+        avatarColor: 'text-emerald-900',
+        name: targetContact.name,
+        subtitle: targetContact.subtitle || 'Servicio vecinal',
+        lastMessage: 'Conversación iniciada',
+        time: 'Ahora',
+      };
+      setSelectedChat(nuevo);
+      return [nuevo, ...prev];
+    });
+  }, [isOpen, targetContact, initialChatId]);
   const [mensajeTexto, setMensajeTexto] = useState('');
   const [threads, setThreads] = useState<Record<string, Array<{ id: string; texto: string; remitente: 'yo' | 'otro'; hora: string }>>>({
     '1': [
@@ -120,7 +160,7 @@ export const MensajesModal: React.FC<MensajesModalProps> = ({
     setMensajeTexto('');
   };
 
-  const listaFiltrada = CHATS_MOCK.filter(chat => {
+  const listaFiltrada = chatsList.filter(chat => {
     const matchSearch = search.trim() === '' || 
       chat.name.toLowerCase().includes(search.toLowerCase()) || 
       chat.subtitle.toLowerCase().includes(search.toLowerCase());

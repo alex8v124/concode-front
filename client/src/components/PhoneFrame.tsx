@@ -42,13 +42,13 @@ export const PhoneFrame: React.FC<PhoneFrameProps> = ({
             <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shadow-xs">
               <img 
                 src="/logo-symbol.png" 
-                alt="DeBarrio" 
+                alt="Ayllu" 
                 className="w-full h-full object-contain"
               />
             </div>
             <div>
               <span className="text-[13px] font-bold text-white tracking-tight flex items-center gap-1.5">
-                DeBarrio
+                Ayllu
                 <span className="text-[10px] text-brand-300 font-medium px-1.5 py-0.5 rounded-full bg-brand-800/50 border border-brand-700/50">
                   Red Vecinal
                 </span>

@@ -14,18 +14,18 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     <div className="flex flex-col justify-between h-full px-6 py-6 bg-[#1f6f4a] text-white select-none overflow-y-auto">
       {/* Contenido Superior */}
       <div className="pt-2">
-        {/* Tarjeta Blanca con el Logo Recortado de DeBarrio */}
-        <div className="w-16 h-16 bg-white rounded-2xl p-2.5 flex items-center justify-center shadow-md mb-6">
+        {/* Tarjeta Blanca con el Logo Recortado de Ayllu */}
+        <div className="w-16 h-16 bg-white rounded-2xl p-2 flex items-center justify-center shadow-md mb-6">
           <img 
             src="/logo-symbol.png" 
-            alt="DeBarrio Logo" 
+            alt="Ayllu Logo" 
             className="w-full h-full object-contain"
           />
         </div>
 
         {/* Título de la Aplicación */}
         <h1 className="text-[32px] font-black leading-tight tracking-tight mb-2 text-white">
-          DeBarrio
+          Ayllu
         </h1>
 
         {/* Subtítulo */}

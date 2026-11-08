@@ -836,7 +836,7 @@ export const apiService = {
     return null;
   },
 
-  async crearResena(vecinoId: string, reseÃ±a: { calificacion: number; recomendo: boolean; destacados: string[]; comentario: string }) {
+  async crearResena(vecinoId: string, resena: { calificacion: number; recomendo: boolean; destacados: string[]; comentario: string }) {
     try {
       const res = await fetch(`${API_BASE}/vecinos/${vecinoId}/resenas`, {
         method: 'POST',
@@ -844,7 +844,7 @@ export const apiService = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenAccesoActual || ''}`
         },
-        body: JSON.stringify(reseÃ±a)
+        body: JSON.stringify(resena)
       });
       if (res.ok) return await res.json();
     } catch (e) {
