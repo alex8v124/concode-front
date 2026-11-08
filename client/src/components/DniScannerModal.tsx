@@ -194,14 +194,21 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
     setStatusMessage('¡DNI leído con éxito! Verificando con RENIEC...');
     setIsOcrActive(true);
 
+    let reniec = null;
+    try {
+      reniec = await apiService.consultarReniec(mrz.dni);
+    } catch (e) {
+      console.warn('Consulta previa a RENIEC falló:', e);
+    }
+
     try {
       const res = await apiService.validarDni(mrz.dni, 'ESCANEO', mrz.fechaNacimiento, mrz.sexo);
 
       if (res && res.datos) {
         onScanSuccess({
           dni: res.datos.dni || mrz.dni,
-          firstName: res.datos.nombres || formatearNombre(mrz.nombres),
-          lastName: `${res.datos.apellidoPaterno || mrz.apellidoPaterno} ${res.datos.apellidoMaterno || mrz.apellidoMaterno}`.trim(),
+          firstName: res.datos.nombres || reniec?.nombres || formatearNombre(mrz.nombres),
+          lastName: `${res.datos.apellidoPaterno || reniec?.apellidoPaterno || mrz.apellidoPaterno} ${res.datos.apellidoMaterno || reniec?.apellidoMaterno || mrz.apellidoMaterno}`.trim(),
           age: res.datos.edad || mrz.edad,
           gender: res.datos.sexo === 'F' ? 'Femenino' : 'Masculino'
         });
@@ -213,11 +220,11 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
       setErrorMessage(err?.message || 'No se pudo validar el DNI en RENIEC.');
     }
 
-    // Si el backend responde sin errores o está en modo offline/simulado
+    // Si el backend responde sin trámite o con fallback RENIEC
     onScanSuccess({
       dni: mrz.dni,
-      firstName: formatearNombre(mrz.nombres),
-      lastName: formatearNombre(`${mrz.apellidoPaterno} ${mrz.apellidoMaterno}`.trim()),
+      firstName: reniec?.nombres || formatearNombre(mrz.nombres),
+      lastName: reniec ? `${reniec.apellidoPaterno} ${reniec.apellidoMaterno}`.trim() : formatearNombre(`${mrz.apellidoPaterno} ${mrz.apellidoMaterno}`.trim()),
       age: mrz.edad,
       gender: mrz.sexo === 'F' ? 'Femenino' : 'Masculino'
     });

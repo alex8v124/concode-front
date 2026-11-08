@@ -65,6 +65,46 @@ export const mobileApiService = {
     };
   },
 
+  // GET /api/v1/auth/reniec/{dni}
+  // Consulta los datos civiles en RENIEC a través del backend o fallback en tiempo real
+  async consultarReniec(dni: string) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/reniec/${dni}`);
+      if (res.ok) {
+        const d = await res.json();
+        return {
+          dni: d.dni || dni,
+          nombres: d.nombres,
+          apellidoPaterno: d.apellidoPaterno,
+          apellidoMaterno: d.apellidoMaterno,
+          nombreCompleto: `${d.nombres || ''} ${d.apellidoPaterno || ''} ${d.apellidoMaterno || ''}`.trim(),
+          fechaNacimiento: d.fechaNacimiento,
+          sexo: d.sexo || 'M'
+        };
+      }
+    } catch (e) {
+      console.warn('Backend RENIEC endpoint no disponible, intentando fallback directo:', e);
+    }
+
+    try {
+      const resPub = await fetch(`https://api.apis.net.pe/v1/dni?numero=${dni}`);
+      if (resPub.ok) {
+        const d = await resPub.json();
+        return {
+          dni: d.numeroDocumento || dni,
+          nombres: d.nombres,
+          apellidoPaterno: d.apellidoPaterno,
+          apellidoMaterno: d.apellidoMaterno,
+          nombreCompleto: d.nombre || `${d.nombres} ${d.apellidoPaterno} ${d.apellidoMaterno}`.trim(),
+          sexo: 'M'
+        };
+      }
+    } catch (err) {
+      console.warn('Fallback RENIEC fallo:', err);
+    }
+    return null;
+  },
+
   // GET /api/v1/auth/tramite
   async consultarTramite() {
     try {

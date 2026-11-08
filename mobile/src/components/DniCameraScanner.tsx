@@ -141,6 +141,18 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       verificado: false,
     };
 
+    // Consulta en tiempo real con la API de RENIEC a través del backend
+    try {
+      const datosReniec = await mobileApiService.consultarReniec(mrz.dni);
+      if (datosReniec?.nombres) {
+        desdeMrz.firstName = formatearNombre(datosReniec.nombres);
+        desdeMrz.lastName = formatearNombre(`${datosReniec.apellidoPaterno ?? ''} ${datosReniec.apellidoMaterno ?? ''}`.trim());
+        desdeMrz.verificado = true;
+      }
+    } catch (err) {
+      console.warn('Consulta RENIEC en escaneo no disponible:', err);
+    }
+
     if (!validarConBackend) {
       onScanSuccess(desdeMrz);
       onClose();
