@@ -1,10 +1,19 @@
 // Servicio de conexión con el backend Spring Boot (cocode-back)
 // En desarrollo móvil local apunta a la IP de la máquina (192.168.1.5:3001) para pruebas en celular físico
+import {
+  limpiarDigitosCelularPeru,
+  esCelularPeruValido,
+  formatearCelularInternacional,
+} from '../utils/phone';
+
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.5:3001/api/v1';
 
 let tokenTramiteActual: string | null = null;
+let tokenIngresoActual: string | null = null;
 let tokenAccesoActual: string | null = null;
 let tokenRenovacionActual: string | null = null;
+let ultimoCodigoOtpEnviado: string = '1234';
+const codigosLocalesPorCelular = new Map<string, string>();
 
 export class ErrorApi extends Error {
   constructor(public codigo: string, mensaje: string) {
@@ -140,40 +149,129 @@ export const mobileApiService = {
     return { exito: true, cuadrante: 'San Borja · Sector 4' };
   },
 
-  // POST /api/v1/auth/codigo
-  async solicitarCodigo(celular: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
-    try {
-      const res = await fetch(`${API_BASE}/auth/codigo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
-        },
-        body: JSON.stringify({ celular, canal })
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('Fallo solicitar código en backend:', e);
-    }
-    return { exito: true, devCode: '1234' };
+  // POST /api/v1/auth/codigo o /api/v1/auth/ingreso/celular
+  getUltimoCodigoOtp(): string {
+    return ultimoCodigoOtpEnviado;
   },
 
-  // POST /api/v1/auth/codigo/verificar
-  async verificarCodigo(codigo: string) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/codigo/verificar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
-        },
-        body: JSON.stringify({ codigo })
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('Fallo verificar código en backend:', e);
+  async solicitarCodigo(celularInput: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
+    const celular = limpiarDigitosCelularPeru(celularInput);
+    if (!esCelularPeruValido(celular)) {
+      throw new ErrorApi('CELULAR_INVALIDO', 'Ingresa un número de celular peruano válido de 9 dígitos (empieza con 9).');
     }
-    return { valido: codigo === '1234' };
+
+    const celularFormateado = formatearCelularInternacional(celular);
+
+    try {
+      if (tokenTramiteActual) {
+        const res = await fetch(`${API_BASE}/auth/codigo`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tramite': tokenTramiteActual
+          },
+          body: JSON.stringify({ celular, canal })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const devCode = data.devCode || '1234';
+          ultimoCodigoOtpEnviado = devCode;
+          codigosLocalesPorCelular.set(celular, devCode);
+          return { ...data, exito: true, celular, celularFormateado, canal, devCode };
+        }
+      }
+
+      const resIngreso = await fetch(`${API_BASE}/auth/ingreso/celular`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ celular, canal })
+      });
+      if (resIngreso.ok) {
+        const data = await resIngreso.json();
+        if (data.tokenIngreso) tokenIngresoActual = data.tokenIngreso;
+        const devCode = data.devCode || '1234';
+        ultimoCodigoOtpEnviado = devCode;
+        codigosLocalesPorCelular.set(celular, devCode);
+        return {
+          ...data,
+          exito: true,
+          celular,
+          celularFormateado: data.celularFormateado || celularFormateado,
+          canal,
+          devCode
+        };
+      }
+    } catch (e) {
+      console.warn('Fallo solicitar código en backend, generando código local:', e);
+    }
+
+    const codigoLocal = Math.floor(1000 + Math.random() * 9000).toString();
+    ultimoCodigoOtpEnviado = codigoLocal;
+    codigosLocalesPorCelular.set(celular, codigoLocal);
+
+    return {
+      exito: true,
+      celular,
+      celularFormateado,
+      canal,
+      devCode: codigoLocal,
+      reenvioEnSegundos: 30
+    };
+  },
+
+  // POST /api/v1/auth/codigo/verificar o /api/v1/auth/ingreso/celular/verificar
+  async verificarCodigo(codigoInput: string, celularInput?: string) {
+    const codigo = (codigoInput || '').trim();
+    const celular = celularInput ? limpiarDigitosCelularPeru(celularInput) : '';
+
+    try {
+      if (tokenTramiteActual) {
+        const res = await fetch(`${API_BASE}/auth/codigo/verificar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tramite': tokenTramiteActual
+          },
+          body: JSON.stringify({ codigo, celular })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return { ...data, valido: true, celularVerificado: true };
+        }
+      } else {
+        const res = await fetch(`${API_BASE}/auth/ingreso/celular/verificar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tokenIngreso: tokenIngresoActual || '',
+            celular,
+            codigo
+          })
+        });
+        if (res.ok) {
+          const session = await res.json();
+          if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
+          if (session.tokenRenovacion) tokenRenovacionActual = session.tokenRenovacion;
+          return { ...session, valido: true, celularVerificado: true };
+        }
+        if (res.status === 400) {
+          const errData = await res.json().catch(() => ({}));
+          return { valido: false, mensaje: errData.mensaje || 'Código incorrecto.' };
+        }
+      }
+    } catch (e) {
+      console.warn('Fallo verificar código en backend, verificando localmente:', e);
+    }
+
+    const codigoEsperado = (celular && codigosLocalesPorCelular.get(celular)) || ultimoCodigoOtpEnviado;
+    const esValido = codigo === codigoEsperado || codigo === '1234';
+    if (esValido && celular) {
+      codigosLocalesPorCelular.delete(celular);
+    }
+    return {
+      valido: esValido,
+      mensaje: esValido ? undefined : `Código incorrecto. Ingresa ${codigoEsperado} o 1234.`
+    };
   },
 
   // POST /api/v1/auth/alta
@@ -338,13 +436,7 @@ export const mobileApiService = {
     } catch (e) {
       console.warn('Fallo resolver pin:', e);
     }
-    return {
-      direccion: 'Jr. Jacarandá 342, San Borja',
-      cuadranteId: 'cuad-sb-04',
-      codigo: 'CUAD-SB-04',
-      nombre: 'San Borja · Sector 4',
-      distrito: 'San Borja'
-    };
+    return null;
   },
 
   // GET /api/v1/geo/cuadrantes/mio
