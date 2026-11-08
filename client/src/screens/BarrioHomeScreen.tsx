@@ -43,13 +43,20 @@ export const BarrioHomeScreen: React.FC<BarrioHomeScreenProps> = ({
       {/* Cabecera Comunal */}
       <div className="bg-brand-800 text-white px-6 pt-5 pb-5">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <span className="text-[10px] uppercase tracking-wider text-brand-200 font-semibold block">
-              Red Vecinal Activa
-            </span>
-            <h2 className="text-[15px] font-bold text-white">
-              {userData.quadrantName || 'San Borja · Sector 4'}
-            </h2>
+          <div className="flex items-center gap-2.5">
+            <img 
+              src="/app-icon.png" 
+              alt="VECI" 
+              className="w-9 h-9 rounded-xl shadow-xs border border-white/20"
+            />
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-brand-200 font-semibold block">
+                VECI · Red Vecinal Activa
+              </span>
+              <h2 className="text-[15px] font-bold text-white">
+                {userData.quadrantName || 'San Borja · Sector 4'}
+              </h2>
+            </div>
           </div>
           
           <button

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 
 interface Props {
   userData: {
@@ -16,9 +16,16 @@ export const BarrioHomeScreen: React.FC<Props> = ({ userData, onLogout }) => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.quadrantTag}>{userData.quadrant || 'San Borja - Sector 4'}</Text>
-          <Text style={styles.greeting}>Hola, {userData.firstName}</Text>
+        <View style={styles.brandRow}>
+          <Image 
+            source={require('../../assets/app-icon.png')} 
+            style={styles.headerLogo} 
+            resizeMode="contain" 
+          />
+          <View>
+            <Text style={styles.quadrantTag}>{userData.quadrant || 'San Borja - Sector 4'}</Text>
+            <Text style={styles.greeting}>Hola, {userData.firstName}</Text>
+          </View>
         </View>
         <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Salir</Text>
@@ -62,6 +69,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
   },
   quadrantTag: {
     fontSize: 11,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 
 interface Props {
   onLogin: () => void;
@@ -10,8 +10,12 @@ export const WelcomeScreen: React.FC<Props> = ({ onLogin, onRegister }) => {
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
-        {/* Logo Verde Minimalista (Figma 1 · Bienvenida) */}
-        <View style={styles.logoIcon} />
+        {/* Logo VECI Oficial Recortado (Figma 1 · Bienvenida) */}
+        <Image 
+          source={require('../../assets/app-icon.png')} 
+          style={styles.logoImage} 
+          resizeMode="contain" 
+        />
         
         <Text style={styles.title}>Tu barrio,{"\n"}conectado</Text>
         
@@ -48,12 +52,11 @@ const styles = StyleSheet.create({
   topSection: {
     paddingTop: 16,
   },
-  logoIcon: {
-    width: 56,
-    height: 56,
+  logoImage: {
+    width: 60,
+    height: 60,
     borderRadius: 16,
-    backgroundColor: '#144e40',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   title: {
     fontSize: 30,

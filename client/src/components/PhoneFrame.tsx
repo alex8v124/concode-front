@@ -39,15 +39,20 @@ export const PhoneFrame: React.FC<PhoneFrameProps> = ({
           
           {/* Logo y Nombre del Proyecto */}
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-brand-800 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-              AT
-            </div>
+            <img 
+              src="/app-icon.png" 
+              alt="VECI" 
+              className="w-8 h-8 rounded-lg shadow-xs object-cover"
+            />
             <div>
-              <span className="text-[13px] font-bold text-white tracking-tight">
-                Ayudar Trazable
+              <span className="text-[13px] font-bold text-white tracking-tight flex items-center gap-1.5">
+                VECI
+                <span className="text-[10px] text-brand-300 font-medium px-1.5 py-0.5 rounded-full bg-brand-800/50 border border-brand-700/50">
+                  Red Vecinal
+                </span>
               </span>
-              <span className="text-[10px] text-brand-300 ml-2 px-1.5 py-0.5 rounded-full bg-brand-800/50 border border-brand-700/50">
-                Comuna Vecinal
+              <span className="text-[10px] text-gray-400 block -mt-0.5">
+                Ayudar Trazable · Comuna
               </span>
             </div>
           </div>

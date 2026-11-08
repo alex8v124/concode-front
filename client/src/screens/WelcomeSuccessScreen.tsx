@@ -28,11 +28,18 @@ export const WelcomeSuccessScreen: React.FC<WelcomeSuccessScreenProps> = ({
       {/* Contenido Central de Éxito (Figma 8 · Cuenta creada) */}
       <div className="flex flex-col items-center justify-center my-auto">
         
-        {/* Círculo Verde con Check (Figma wireframe 8) */}
-        <div className="w-16 h-16 rounded-full bg-brand-800 flex items-center justify-center shadow-xs mb-6">
-          <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+        {/* Logo Emblema VECI con Check de Éxito */}
+        <div className="relative mb-5 flex items-center justify-center">
+          <img 
+            src="/logo-veci-symbol.png" 
+            alt="VECI" 
+            className="w-20 h-20 object-contain drop-shadow-sm"
+          />
+          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-brand-800 border-2 border-white flex items-center justify-center shadow-xs">
+            <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
         </div>
 
         {/* Título de Bienvenida */}

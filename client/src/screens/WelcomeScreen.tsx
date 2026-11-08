@@ -13,8 +13,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     <div className="flex flex-col justify-between h-full px-6 py-7 bg-surface-bg select-none">
       {/* Zona Superior */}
       <div className="flex flex-col items-start pt-3">
-        {/* Logo Verde Redondeado (Figma 1 · Bienvenida) */}
-        <div className="w-14 h-14 rounded-2xl bg-brand-800 shadow-xs mb-7" />
+        {/* Logo VECI Oficial (App Icon recortado) */}
+        <div className="relative mb-6">
+          <img 
+            src="/app-icon.png" 
+            alt="VECI - Red Vecinal" 
+            className="w-16 h-16 rounded-2xl shadow-md object-contain"
+          />
+        </div>
 
         {/* Título Principal */}
         <h1 className="text-[30px] font-bold leading-[1.16] text-ink-primary tracking-tight mb-3">
