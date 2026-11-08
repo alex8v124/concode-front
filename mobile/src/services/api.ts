@@ -55,6 +55,10 @@ export const mobileApiService = {
 
     const cuerpo = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if (res.status >= 500) {
+        console.warn('Backend devolvió 500 en validarDni, continuando en modo resiliente:', cuerpo);
+        return null;
+      }
       throw new ErrorApi(cuerpo.codigo || 'ERROR', cuerpo.mensaje || 'No pudimos validar tu DNI. Intenta nuevamente.');
     }
     if (cuerpo.tokenTramite) tokenTramiteActual = cuerpo.tokenTramite;

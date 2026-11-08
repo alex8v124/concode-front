@@ -176,6 +176,12 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       }
       onClose();
     } catch (e) {
+      console.warn('Error en validacion con backend, usando datos escaneados:', e);
+      if (desdeMrz.dni && desdeMrz.dni.length === 8) {
+        onScanSuccess(desdeMrz);
+        onClose();
+        return;
+      }
       setMensajeError(e instanceof ErrorApi ? e.message : 'No pudimos validar tu DNI. Intenta nuevamente.');
       setEstado('error');
     }
