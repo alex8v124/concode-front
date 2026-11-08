@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { DniCameraScanner } from '../components/DniCameraScanner';
 
 interface Props {
   onBack: () => void;
   onContinue: (phone: string) => void;
   onScanError: () => void;
+  onScanSuccess?: (data: { firstName: string; lastName: string; age: string; gender: string; dni: string }) => void;
 }
 
-export const LoginScreen: React.FC<Props> = ({ onBack, onContinue, onScanError }) => {
+export const LoginScreen: React.FC<Props> = ({ onBack, onContinue, onScanError, onScanSuccess }) => {
   const [phone, setPhone] = useState('987654321');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannedDni, setScannedDni] = useState('');
 
   return (
     <View style={styles.container}>
@@ -20,14 +24,22 @@ export const LoginScreen: React.FC<Props> = ({ onBack, onContinue, onScanError }
         <Text style={styles.title}>Inicia sesión</Text>
 
         {/* Viewfinder Card */}
-        <TouchableOpacity style={styles.viewfinder} activeOpacity={0.9} onPress={onScanError}>
+        <TouchableOpacity 
+          style={styles.viewfinder} 
+          activeOpacity={0.85} 
+          onPress={() => setIsScannerOpen(true)}
+        >
           <View style={styles.cornerTL} />
           <View style={styles.cornerTR} />
           <View style={styles.cornerBL} />
           <View style={styles.cornerBR} />
           
-          <Text style={styles.scanTitle}>Escanea tu DNI para iniciar sesión</Text>
-          <Text style={styles.scanSubtitle}>Coloca el DNI dentro del marco</Text>
+          <Text style={styles.scanTitle}>
+            {scannedDni ? `✓ DNI: ${scannedDni} (Leído)` : 'Escanea tu DNI para iniciar sesión'}
+          </Text>
+          <Text style={styles.scanSubtitle}>
+            {scannedDni ? 'Toca para escanear nuevamente' : 'Coloca el DNI dentro del marco'}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.inputGroup}>
@@ -55,6 +67,21 @@ export const LoginScreen: React.FC<Props> = ({ onBack, onContinue, onScanError }
           Continuar
         </Text>
       </TouchableOpacity>
+
+      {/* Modal de Cámara para Escanear DNI */}
+      <DniCameraScanner
+        visible={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={(data) => {
+          setScannedDni(data.dni);
+          if (onScanSuccess) {
+            onScanSuccess(data);
+          }
+        }}
+        onScanError={() => {
+          onScanError();
+        }}
+      />
     </View>
   );
 };

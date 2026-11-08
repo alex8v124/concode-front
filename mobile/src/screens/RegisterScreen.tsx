@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { DniCameraScanner } from '../components/DniCameraScanner';
 
 interface Props {
   userData: {
@@ -17,18 +18,11 @@ interface Props {
 }
 
 export const RegisterScreen: React.FC<Props> = ({ userData, onBack, onActivateMap, onScanSuccess, onScanError }) => {
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const isScanned = Boolean(userData.dniVerified && userData.firstName);
 
   const handleScanPress = () => {
-    if (!isScanned) {
-      onScanSuccess({
-        firstName: 'Ana María',
-        lastName: 'Quispe Ramos',
-        age: '34',
-        gender: 'Femenino',
-        dni: '00000000',
-      });
-    }
+    setIsScannerOpen(true);
   };
 
   return (
@@ -157,6 +151,18 @@ export const RegisterScreen: React.FC<Props> = ({ userData, onBack, onActivateMa
         </TouchableOpacity>
         <Text style={styles.disabledHelper}>Se habilita al guardar tu domicilio en el mapa</Text>
       </View>
+
+      {/* Modal con Cámara en Vivo y Guía de DNI Peruano */}
+      <DniCameraScanner
+        visible={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={(data) => {
+          onScanSuccess(data);
+        }}
+        onScanError={() => {
+          onScanError();
+        }}
+      />
     </ScrollView>
   );
 };

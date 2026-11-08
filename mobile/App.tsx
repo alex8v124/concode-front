@@ -53,6 +53,9 @@ export default function App() {
             setUserData(prev => ({ ...prev, phone }));
             setCurrentScreen('otp');
           }}
+          onScanSuccess={(data) => {
+            setUserData(prev => ({ ...prev, ...data, dniVerified: true }));
+          }}
           onScanError={() => setCurrentScreen('ocr_error')}
         />
       )}
