@@ -9,10 +9,12 @@ import { OtpScreen } from './src/screens/OtpScreen';
 import { OcrErrorScreen } from './src/screens/OcrErrorScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
 import { BarrioHomeScreen } from './src/screens/BarrioHomeScreen';
+import { RestablecerAccesoScreen } from './src/screens/RestablecerAccesoScreen';
 
 export type ScreenName = 
   | 'welcome' 
   | 'login' 
+  | 'restablecer_acceso'
   | 'register_step1' 
   | 'domicilio_step2' 
   | 'confirm_step3' 
@@ -49,14 +51,26 @@ export default function App() {
       {currentScreen === 'login' && (
         <LoginScreen 
           onBack={() => setCurrentScreen('welcome')}
-          onContinue={(phone) => {
-            setUserData(prev => ({ ...prev, phone }));
+          onContinue={(identificador) => {
+            setUserData(prev => ({ ...prev, phone: identificador }));
             setCurrentScreen('otp');
           }}
+          onRegister={() => setCurrentScreen('register_step1')}
+          onRestablecerAcceso={() => setCurrentScreen('restablecer_acceso')}
           onScanSuccess={(data) => {
             setUserData(prev => ({ ...prev, ...data, dniVerified: true }));
           }}
           onScanError={() => setCurrentScreen('ocr_error')}
+        />
+      )}
+
+      {currentScreen === 'restablecer_acceso' && (
+        <RestablecerAccesoScreen
+          onBack={() => setCurrentScreen('login')}
+          onSuccessRecovery={(data) => {
+            setUserData(prev => ({ ...prev, ...data, dniVerified: true }));
+            setCurrentScreen('login');
+          }}
         />
       )}
 

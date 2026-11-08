@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
 
 interface LoginScreenProps {
   onBack: () => void;
   onOpenScanner: () => void;
-  onContinue: (phone: string) => void;
+  onContinue: (identificador: string) => void;
+  onRegister?: () => void;
   dniScanned?: string;
 }
 
@@ -11,100 +13,133 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onBack,
   onOpenScanner,
   onContinue,
+  onRegister,
   dniScanned
 }) => {
-  const [phoneNumber, setPhoneNumber] = useState('987654321');
+  const [tab, setTab] = useState<'celular' | 'correo'>('celular');
+  const [phoneNumber, setPhoneNumber] = useState('987 654 321');
+  const [email, setEmail] = useState('');
 
-  const cleanDigits = phoneNumber.replace(/\D/g, '');
-  const isValidPhone = cleanDigits.length >= 9;
+  const isValid = tab === 'celular' ? phoneNumber.replace(/\s/g, '').length >= 9 : email.includes('@');
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
-    setPhoneNumber('9' + raw);
+  const handleSubmit = () => {
+    if (!isValid) return;
+    const val = tab === 'celular' ? phoneNumber.replace(/\s/g, '') : email.trim();
+    onContinue(val);
   };
 
   return (
-    <div className="flex flex-col justify-between h-full px-6 py-6 bg-surface-bg select-none">
-      {/* Zona Superior */}
-      <div className="flex flex-col">
-        {/* Enlace Atrás (Figma: ‹ Atrás) */}
+    <div className="flex flex-col justify-between h-full px-6 py-6 bg-[#f7f8f4] select-none overflow-y-auto">
+      <div>
+        {/* Botón Atrás */}
         <button
           onClick={onBack}
-          className="self-start text-[13px] font-medium text-ink-primary hover:text-brand-800 mb-3 -ml-0.5 py-0.5 transition cursor-pointer"
+          className="w-9 h-9 rounded-full bg-white shadow-xs flex items-center justify-center text-gray-700 hover:bg-gray-100 mb-5 transition cursor-pointer"
         >
-          ‹ Atrás
+          <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* Título de la pantalla */}
-        <h2 className="text-[22px] font-bold text-ink-primary mb-4 tracking-tight">
-          Inicia sesión
+        {/* Título y Subtítulo */}
+        <h2 className="text-2xl font-black text-gray-900 mb-1.5 tracking-tight">
+          Hola de nuevo, vecino
         </h2>
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+          Escribe tu celular o correo y te enviamos un código para entrar.
+        </p>
 
-        {/* Tarjeta del Visor para Escanear DNI */}
-        <div 
-          onClick={onOpenScanner}
-          role="button"
-          tabIndex={0}
-          className="relative w-full h-[155px] rounded-2xl bg-surface-scanner text-white p-4 cursor-pointer transition flex flex-col items-center justify-center overflow-hidden hover:brightness-110 active:scale-[0.99]"
-          title="Toca para escanear DNI"
-        >
-          {/* 4 Esquinas amarillas de precisión (Figma wireframe) */}
-          <div className="pointer-events-none absolute inset-3.5">
-            <div className="absolute top-0 left-0 w-4 h-4 border-t-[2.5px] border-l-[2.5px] border-accent-yellow"></div>
-            <div className="absolute top-0 right-0 w-4 h-4 border-t-[2.5px] border-r-[2.5px] border-accent-yellow"></div>
-            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-[2.5px] border-l-[2.5px] border-accent-yellow"></div>
-            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-[2.5px] border-r-[2.5px] border-accent-yellow"></div>
-            
-            {/* Animación sutil de escáner */}
-            <div className="absolute left-0 right-0 h-px bg-accent-yellow/60 animate-scan-laser"></div>
-          </div>
-
-          <div className="text-center z-10 px-3">
-            <p className="text-[13px] font-semibold text-white tracking-tight mb-1">
-              {dniScanned ? `DNI: ${dniScanned} (Leído)` : 'Escanea tu DNI para iniciar sesión'}
-            </p>
-            <p className="text-[11px] text-gray-400 font-normal">
-              Coloca el DNI dentro del marco
-            </p>
-          </div>
+        {/* Selector Pestañas: Celular / Correo */}
+        <div className="flex bg-[#e5e7eb] p-1 rounded-xl mb-6">
+          <button
+            onClick={() => setTab('celular')}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition cursor-pointer ${
+              tab === 'celular' 
+                ? 'bg-white text-gray-900 shadow-xs' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            Celular
+          </button>
+          <button
+            onClick={() => setTab('correo')}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition cursor-pointer ${
+              tab === 'correo' 
+                ? 'bg-white text-gray-900 shadow-xs' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            Correo
+          </button>
         </div>
 
-        {/* Formulario: Número de Celular */}
-        <div className="mt-5 flex flex-col">
-          <label className="text-[12px] font-medium text-ink-primary mb-1.5">
-            Número de celular
-          </label>
-
-          <div className="flex items-center rounded-xl bg-white border border-surface-border px-3.5 py-3 shadow-2xs focus-within:border-brand-800 transition">
-            <span className="text-[14px] font-medium text-ink-primary mr-1">9</span>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={phoneNumber.startsWith('9') ? phoneNumber.slice(1) : phoneNumber}
-              onChange={handlePhoneChange}
-              placeholder="· · · · · · · ·"
-              className="w-full text-[14px] font-medium text-ink-primary tracking-wider bg-transparent focus:outline-none placeholder:text-gray-300"
+        {/* Inputs */}
+        {tab === 'celular' ? (
+          <div className="mb-6">
+            <label className="block text-sm font-bold text-gray-900 mb-2">
+              Número de celular
+            </label>
+            <div className="flex gap-2.5">
+              <div className="w-16 h-12 bg-white rounded-xl border border-gray-200 flex items-center justify-center font-bold text-sm text-gray-900">
+                +51
+              </div>
+              <input 
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="987 654 321"
+                className="flex-1 h-12 bg-white rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-900 outline-none focus:border-[#144e40]"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <label className="block text-sm font-bold text-gray-900 mb-2">
+              Correo electrónico
+            </label>
+            <input 
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vecino@correo.com"
+              className="w-full h-12 bg-white rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-900 outline-none focus:border-[#144e40]"
             />
           </div>
+        )}
 
-          <p className="text-[11px] text-ink-secondary mt-2 leading-relaxed">
-            Te enviaremos un código de 4 dígitos por mensaje de texto.
-          </p>
+        {/* Botón Enviarme el código */}
+        <button
+          onClick={handleSubmit}
+          disabled={!isValid}
+          className={`w-full py-3.5 bg-black text-white font-bold rounded-xl text-base transition cursor-pointer ${
+            !isValid ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
+          }`}
+        >
+          Enviarme el código
+        </button>
+
+        {/* Tarjeta Recuperación con DNI */}
+        <div 
+          onClick={onOpenScanner}
+          className="mt-6 flex items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-xs hover:border-[#144e40] transition cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-700 mr-3.5 shrink-0">
+            <CreditCard className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-bold text-sm text-gray-900">¿Perdiste tu celular o correo?</h4>
+            <p className="text-xs text-gray-500">Recupera tu cuenta escaneando tu DNI</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
         </div>
       </div>
 
-      {/* Botón Inferior: Continuar */}
-      <div className="w-full pb-1">
-        <button
-          onClick={() => isValidPhone && onContinue(phoneNumber)}
-          disabled={!isValidPhone}
-          className={`w-full py-3.5 px-5 rounded-xl font-semibold text-[15px] transition flex items-center justify-center ${
-            isValidPhone
-              ? 'bg-brand-800 hover:bg-brand-900 active:scale-[0.99] text-white shadow-xs cursor-pointer'
-              : 'bg-surface-mutedBtn text-surface-mutedText cursor-not-allowed'
-          }`}
+      {/* Footer Crea tu cuenta */}
+      <div className="text-center py-4">
+        <span className="text-sm text-gray-500">¿Eres nuevo? </span>
+        <button 
+          onClick={onRegister}
+          className="text-sm font-bold text-[#144e40] hover:underline cursor-pointer"
         >
-          Continuar
+          Crea tu cuenta
         </button>
       </div>
     </div>
