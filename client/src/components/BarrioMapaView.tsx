@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, Layers, ZoomIn, ZoomOut } from 'lucide-react';
+import { Search, Layers, ZoomIn, ZoomOut, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface NeighborPin {
   id: string;
@@ -117,6 +117,7 @@ export const BarrioMapaView: React.FC<BarrioMapaViewProps> = ({ onSelectNeighbor
   const [selectedNeighbor, setSelectedNeighbor] = useState<NeighborPin>(NEIGHBOR_PINS[0]);
   const [search, setSearch] = useState('');
   const [mapType, setMapType] = useState<'m' | 'y'>('m'); // 'm' = roadmap, 'y' = satellite
+  const [sheetExpanded, setSheetExpanded] = useState(false);
 
   const filteredPins = NEIGHBOR_PINS.filter(pin => {
     const matchCat = pin.category === category;
@@ -349,33 +350,90 @@ export const BarrioMapaView: React.FC<BarrioMapaViewProps> = ({ onSelectNeighbor
         <span className="text-[#EA4335]">e</span>
       </div>
 
-      {/* Tarjeta Flotante Inferior del Resultado Seleccionado */}
-      <div className="absolute bottom-20 left-4 right-4 z-20 bg-white rounded-2xl p-4 shadow-xl border border-gray-200">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-bold text-gray-900">{filteredPins.length} resultados cerca de ti</span>
-          <span className="text-xs text-gray-500 font-medium">radio 1 km</span>
+      {/* Tarjeta Flotante Inferior Expansible con Resultados */}
+      <div className={`absolute bottom-5 left-4 right-4 z-20 bg-white rounded-2xl px-4 pt-2.5 pb-3.5 shadow-xl border border-gray-200 transition-all ${sheetExpanded ? 'max-h-[300px] flex flex-col' : ''}`}>
+        <div
+          onClick={() => setSheetExpanded(prev => !prev)}
+          className="cursor-pointer pb-2 select-none"
+        >
+          <div className="w-9 h-1 rounded-full bg-gray-300 mx-auto mb-2" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-gray-900">{filteredPins.length} resultados cerca de ti</span>
+              {sheetExpanded ? (
+                <ChevronDown className="w-4 h-4 text-[#144e40]" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-[#144e40]" />
+              )}
+            </div>
+            <span className="text-xs text-[#144e40] font-semibold">
+              {sheetExpanded ? 'Contraer' : 'Ver todos · radio 1 km'}
+            </span>
+          </div>
         </div>
 
-        {selectedNeighbor && (
-          <div 
-            onClick={() => onSelectNeighbor?.(selectedNeighbor)}
-            className="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-50 transition cursor-pointer"
-          >
-            <div className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center font-bold text-sm shrink-0">
-              {selectedNeighbor.initials}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-gray-900 text-sm truncate">{selectedNeighbor.name}</h4>
-                <span className="font-bold text-gray-900 text-xs">{selectedNeighbor.distance}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-gray-500 mt-0.5">
-                <span className="truncate">{selectedNeighbor.trade} · {selectedNeighbor.vouchCount} vistos buenos</span>
-                <span className="shrink-0">{selectedNeighbor.walkingTime}</span>
-              </div>
-            </div>
+        {sheetExpanded ? (
+          <div className="overflow-y-auto space-y-2 pr-0.5 max-h-[220px]">
+            {filteredPins.map(pin => {
+              const isCurrent = selectedNeighbor?.id === pin.id;
+              return (
+                <div
+                  key={pin.id}
+                  onClick={() => {
+                    setSelectedNeighbor(pin);
+                    onSelectNeighbor?.(pin);
+                  }}
+                  className={`flex items-center gap-3 p-2 rounded-xl border transition cursor-pointer ${
+                    isCurrent
+                      ? 'bg-[#eef6f2] border-[#144e40]'
+                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#144e40] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    {pin.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-gray-900 text-xs truncate">{pin.name}</h4>
+                      <span className="font-bold text-gray-900 text-xs">{pin.distance}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-gray-500 mt-0.5">
+                      <span className="truncate">{pin.trade} · {pin.vouchCount} vistos buenos</span>
+                      <span className="shrink-0">{pin.walkingTime}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        ) : (
+          (selectedNeighbor || filteredPins[0]) && (() => {
+            const item = selectedNeighbor && filteredPins.some(p => p.id === selectedNeighbor.id)
+              ? selectedNeighbor
+              : filteredPins[0];
+            if (!item) return null;
+            return (
+              <div 
+                onClick={() => onSelectNeighbor?.(item)}
+                className="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-50 transition cursor-pointer"
+              >
+                <div className="w-11 h-11 rounded-full bg-[#144e40] text-white flex items-center justify-center font-bold text-sm shrink-0">
+                  {item.initials}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-gray-900 text-sm truncate">{item.name}</h4>
+                    <span className="font-bold text-gray-900 text-xs">{item.distance}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500 mt-0.5">
+                    <span className="truncate">{item.trade} · {item.vouchCount} vistos buenos</span>
+                    <span className="shrink-0">{item.walkingTime}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
         )}
       </div>
 

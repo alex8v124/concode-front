@@ -127,6 +127,7 @@ export const BarrioMapaScreen: React.FC<Props> = ({ userData, onSelectNeighbor }
   const [selectedTag, setSelectedTag] = useState('Todos');
   const [selectedNeighbor, setSelectedNeighbor] = useState<NeighborPin>(NEIGHBOR_PINS[0]);
   const [search, setSearch] = useState('');
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   
   // Controles de Mapa Google Maps
   const [zoom, setZoom] = useState(16);
@@ -401,36 +402,98 @@ export const BarrioMapaScreen: React.FC<Props> = ({ userData, onSelectNeighbor }
         </View>
       </View>
 
-      {/* Tarjeta inferior flotante del resultado seleccionado */}
-      <View style={styles.bottomCard}>
-        <View style={styles.bottomCardHeader}>
-          <Text style={styles.bottomCardTitle}>{filteredPins.length} resultados cerca de ti</Text>
-          <Text style={styles.bottomCardRadio}>radio 1 km</Text>
-        </View>
+      {/* Tarjeta inferior flotante expansible con todos los resultados */}
+      <View style={[styles.bottomCard, sheetExpanded && styles.bottomCardExpanded]}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setSheetExpanded(prev => !prev)}
+          style={styles.sheetDragArea}
+        >
+          <View style={styles.sheetHandle} />
+          <View style={styles.bottomCardHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.bottomCardTitle}>{filteredPins.length} resultados cerca de ti</Text>
+              <Feather
+                name={sheetExpanded ? 'chevron-down' : 'chevron-up'}
+                size={16}
+                color="#144e40"
+              />
+            </View>
+            <Text style={styles.bottomCardRadio}>
+              {sheetExpanded ? 'Toca para contraer' : 'Ver todos · radio 1 km'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
-        {selectedNeighbor && (
-          <TouchableOpacity 
-            style={styles.neighborItemRow}
-            activeOpacity={0.8}
-            onPress={() => onSelectNeighbor?.(selectedNeighbor.id)}
+        {sheetExpanded ? (
+          <ScrollView
+            style={styles.expandedListScroll}
+            contentContainerStyle={{ gap: 10, paddingBottom: 8 }}
+            showsVerticalScrollIndicator={true}
           >
-            <View style={styles.neighborAvatar}>
-              <Text style={styles.neighborAvatarText}>{selectedNeighbor.initials}</Text>
-            </View>
+            {filteredPins.map(pin => {
+              const isCurrent = selectedNeighbor?.id === pin.id;
+              return (
+                <TouchableOpacity
+                  key={pin.id}
+                  style={[styles.neighborItemRow, styles.neighborItemCard, isCurrent && styles.neighborItemCardSelected]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelectedNeighbor(pin);
+                    onSelectNeighbor?.(pin.id);
+                  }}
+                >
+                  <View style={styles.neighborAvatar}>
+                    <Text style={styles.neighborAvatarText}>{pin.initials}</Text>
+                  </View>
 
-            <View style={styles.neighborInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.neighborName}>{selectedNeighbor.name}</Text>
-                <Text style={styles.neighborDist}>{selectedNeighbor.distance}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.neighborTrade}>
-                  {selectedNeighbor.trade} · {selectedNeighbor.vouchCount} vistos buenos
-                </Text>
-                <Text style={styles.neighborWalking}>{selectedNeighbor.walkingTime}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+                  <View style={styles.neighborInfo}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.neighborName}>{pin.name}</Text>
+                      <Text style={styles.neighborDist}>{pin.distance}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.neighborTrade}>
+                        {pin.trade} · {pin.vouchCount} vistos buenos
+                      </Text>
+                      <Text style={styles.neighborWalking}>{pin.walkingTime}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          (selectedNeighbor || filteredPins[0]) && (() => {
+            const item = selectedNeighbor && filteredPins.some(p => p.id === selectedNeighbor.id)
+              ? selectedNeighbor
+              : filteredPins[0];
+            if (!item) return null;
+            return (
+              <TouchableOpacity 
+                style={styles.neighborItemRow}
+                activeOpacity={0.8}
+                onPress={() => onSelectNeighbor?.(item.id)}
+              >
+                <View style={styles.neighborAvatar}>
+                  <Text style={styles.neighborAvatarText}>{item.initials}</Text>
+                </View>
+
+                <View style={styles.neighborInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.neighborName}>{item.name}</Text>
+                    <Text style={styles.neighborDist}>{item.distance}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.neighborTrade}>
+                      {item.trade} · {item.vouchCount} vistos buenos
+                    </Text>
+                    <Text style={styles.neighborWalking}>{item.walkingTime}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })()
         )}
       </View>
 
@@ -682,7 +745,7 @@ const styles = StyleSheet.create({
   zoomControls: {
     position: 'absolute',
     right: 16,
-    bottom: 120,
+    bottom: 205,
     backgroundColor: '#ffffff',
     borderRadius: 10,
     overflow: 'hidden',
@@ -711,7 +774,7 @@ const styles = StyleSheet.create({
   },
   googleLogoContainer: {
     position: 'absolute',
-    bottom: 115,
+    bottom: 200,
     left: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -729,24 +792,53 @@ const styles = StyleSheet.create({
   googleLogoE: { fontSize: 13, fontWeight: '700', color: '#EA4335' },
   bottomCard: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 88,
     left: 16,
     right: 16,
     backgroundColor: '#ffffff',
     borderRadius: 20,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
     zIndex: 15,
+  },
+  bottomCardExpanded: {
+    maxHeight: 330,
+  },
+  sheetDragArea: {
+    paddingBottom: 8,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d1d5db',
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  expandedListScroll: {
+    maxHeight: 245,
+  },
+  neighborItemCard: {
+    padding: 8,
+    borderRadius: 14,
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  neighborItemCardSelected: {
+    backgroundColor: '#eef6f2',
+    borderColor: '#144e40',
   },
   bottomCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
   },
   bottomCardTitle: {
     fontSize: 14,
