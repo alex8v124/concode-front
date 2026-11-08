@@ -3,6 +3,7 @@ import { PhoneFrame } from './components/PhoneFrame';
 import { DniScannerModal } from './components/DniScannerModal';
 import { WelcomeScreen } from './screens/WelcomeScreen';
 import { LoginScreen } from './screens/LoginScreen';
+import { LoginDniStepScreen } from './screens/LoginDniStepScreen';
 import { RegisterStep1Screen } from './screens/RegisterStep1Screen';
 import { DomicilioMapScreen } from './screens/DomicilioMapScreen';
 import { RegisterStep3ConfirmScreen } from './screens/RegisterStep3ConfirmScreen';
@@ -48,6 +49,9 @@ export const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('welcome');
   const [viewMode, setViewMode] = useState<'phone' | 'gallery'>('phone');
   const [formData, setFormData] = useState<UserFormData>(DEFAULT_FORM_DATA);
+  const [otpCanal, setOtpCanal] = useState<'SMS' | 'WHATSAPP'>('SMS');
+  const [otpDevCode, setOtpDevCode] = useState<string>('1234');
+  const [otpOrigin, setOtpOrigin] = useState<'login' | 'register'>('login');
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [scannerContext, setScannerContext] = useState<'login' | 'register'>('register');
 
@@ -78,7 +82,9 @@ export const App: React.FC = () => {
       dniVerified: true
     }));
 
-    if (scannerContext === 'register' && formData.addressVerified) {
+    if (scannerContext === 'login') {
+      setCurrentScreen('barrio_home');
+    } else if (scannerContext === 'register' && formData.addressVerified) {
       setCurrentScreen('confirm_step3');
     }
   };
@@ -113,13 +119,27 @@ export const App: React.FC = () => {
         return (
           <LoginScreen
             onBack={() => setCurrentScreen('welcome')}
-            onOpenScanner={() => openScanner('login')}
-            onContinue={(phone) => {
+            onRegister={() => setCurrentScreen('register_step1')}
+            onContinue={async (phone, canal = 'SMS') => {
               handleUpdateFormData({ phone });
-              apiService.sendOtp(phone);
+              setOtpOrigin('login');
+              setOtpCanal(canal);
+              if (!phone.includes('@')) {
+                const resp = await apiService.sendOtp(phone, canal);
+                if (resp?.devCode) setOtpDevCode(resp.devCode);
+              } else {
+                setOtpDevCode('1234');
+              }
               setCurrentScreen('otp_verify');
             }}
-            dniScanned={data.dniVerified ? data.dni : undefined}
+          />
+        );
+      case 'login_dni_step':
+        return (
+          <LoginDniStepScreen
+            phone={data.phone}
+            onBack={() => setCurrentScreen('otp_verify')}
+            onOpenScanner={() => openScanner('login')}
           />
         );
       case 'register_step1':
@@ -138,7 +158,7 @@ export const App: React.FC = () => {
           <DomicilioMapScreen
             onBack={() => setCurrentScreen('register_step1')}
             initialAddress={data.addressText}
-            onSaveDomicilio={(loc) => {
+            onSaveDomicilio={async (loc) => {
               handleUpdateFormData({
                 addressText: loc.address,
                 lat: loc.lat,
@@ -152,6 +172,7 @@ export const App: React.FC = () => {
                 gender: data.gender || 'Femenino',
                 dniVerified: true
               });
+              await apiService.guardarDomicilio(loc.lat, loc.lng);
               setCurrentScreen('confirm_step3');
             }}
           />
@@ -161,9 +182,12 @@ export const App: React.FC = () => {
           <RegisterStep3ConfirmScreen
             onBack={() => setCurrentScreen('domicilio_step2')}
             formData={data}
+            onUpdateFormData={handleUpdateFormData}
             onEditLocation={() => setCurrentScreen('domicilio_step2')}
-            onRegisterSubmit={() => {
-              apiService.sendOtp(data.phone || '987654321');
+            onRegisterSubmit={async () => {
+              setOtpOrigin('register');
+              const resp = await apiService.sendOtp(data.phone || '987654321', otpCanal);
+              if (resp?.devCode) setOtpDevCode(resp.devCode);
               setCurrentScreen('otp_verify');
             }}
           />
@@ -172,29 +196,36 @@ export const App: React.FC = () => {
         return (
           <OtpVerificationScreen
             onBack={() => {
-              if (data.dniVerified) {
+              if (otpOrigin === 'register') {
                 setCurrentScreen('confirm_step3');
               } else {
                 setCurrentScreen('login');
               }
             }}
             phone={data.phone}
+            devCode={otpDevCode}
+            canal={otpCanal}
+            mode={otpOrigin}
             onVerifySuccess={() => {
-              apiService.registerUser(data);
-              setCurrentScreen('welcome_success');
+              if (otpOrigin === 'register') {
+                apiService.registerUser(data);
+                setCurrentScreen('welcome_success');
+              } else {
+                setCurrentScreen('login_dni_step');
+              }
             }}
           />
         );
       case 'ocr_error':
         return (
           <OcrErrorScreen
-            onBack={() => setCurrentScreen('register_step1')}
+            onBack={() => setCurrentScreen(scannerContext === 'login' ? 'login_dni_step' : 'register_step1')}
             onRetry={() => {
-              setCurrentScreen('register_step1');
-              openScanner('register');
+              setCurrentScreen(scannerContext === 'login' ? 'login_dni_step' : 'register_step1');
+              openScanner(scannerContext);
             }}
             onManualEntry={() => {
-              setCurrentScreen('register_step1');
+              setCurrentScreen(scannerContext === 'login' ? 'login_dni_step' : 'register_step1');
             }}
           />
         );

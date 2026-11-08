@@ -1,31 +1,52 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { ChevronLeft, MessageSquare, ShieldCheck, Smartphone } from 'lucide-react';
+import {
+  formatearCelularAlEscribir,
+  esCelularPeruValido,
+  limpiarDigitosCelularPeru,
+} from '../utils/phone';
 
 interface LoginScreenProps {
   onBack: () => void;
-  onOpenScanner: () => void;
-  onContinue: (identificador: string) => void;
+  onOpenScanner?: () => void;
+  onContinue: (identificador: string, canal?: 'SMS' | 'WHATSAPP') => Promise<void> | void;
   onRegister?: () => void;
   dniScanned?: string;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onBack,
-  onOpenScanner,
   onContinue,
   onRegister,
-  dniScanned: _dniScanned
 }) => {
   const [tab, setTab] = useState<'celular' | 'correo'>('celular');
   const [phoneNumber, setPhoneNumber] = useState('987 654 321');
+  const [canal, setCanal] = useState<'SMS' | 'WHATSAPP'>('SMS');
   const [email, setEmail] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const isValid = tab === 'celular' ? phoneNumber.replace(/\s/g, '').length >= 9 : email.includes('@');
+  const digitosCelular = limpiarDigitosCelularPeru(phoneNumber);
+  const celularValido = esCelularPeruValido(phoneNumber);
+  const isValid = tab === 'celular' ? celularValido : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  const handleSubmit = () => {
-    if (!isValid) return;
-    const val = tab === 'celular' ? phoneNumber.replace(/\s/g, '') : email.trim();
-    onContinue(val);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg('');
+    setPhoneNumber(formatearCelularAlEscribir(e.target.value));
+  };
+
+  const handleSubmit = async () => {
+    if (!isValid || isSending) return;
+    setErrorMsg('');
+    setIsSending(true);
+    try {
+      const val = tab === 'celular' ? digitosCelular : email.trim();
+      await onContinue(val, canal);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'No pudimos enviar el código. Intenta de nuevo.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -44,13 +65,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           Hola de nuevo, vecino
         </h2>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-          Escribe tu celular o correo y te enviamos un código para entrar.
+          Paso 1 de 2 · Ingresa tu celular o correo para recibir tu código de verificación. Luego confirmarás tu identidad escaneando tu DNI.
         </p>
 
         {/* Selector Pestañas: Celular / Correo */}
         <div className="flex bg-[#e5e7eb] p-1 rounded-xl mb-6">
           <button
-            onClick={() => setTab('celular')}
+            onClick={() => {
+              setTab('celular');
+              setErrorMsg('');
+            }}
             className={`flex-1 py-2 text-sm font-bold rounded-lg transition cursor-pointer ${
               tab === 'celular' 
                 ? 'bg-white text-gray-900 shadow-xs' 
@@ -60,7 +84,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             Celular
           </button>
           <button
-            onClick={() => setTab('correo')}
+            onClick={() => {
+              setTab('correo');
+              setErrorMsg('');
+            }}
             className={`flex-1 py-2 text-sm font-bold rounded-lg transition cursor-pointer ${
               tab === 'correo' 
                 ? 'bg-white text-gray-900 shadow-xs' 
@@ -73,7 +100,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         {/* Inputs */}
         {tab === 'celular' ? (
-          <div className="mb-6">
+          <div className="mb-5">
             <label className="block text-sm font-bold text-gray-900 mb-2">
               Número de celular
             </label>
@@ -83,11 +110,50 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
               <input 
                 type="tel"
+                inputMode="numeric"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={handlePhoneChange}
                 placeholder="987 654 321"
-                className="flex-1 h-12 bg-white rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-900 outline-none focus:border-[#144e40]"
+                className={`flex-1 h-12 bg-white rounded-xl border px-4 text-sm font-medium text-gray-900 outline-none transition ${
+                  digitosCelular.length > 0 && !celularValido
+                    ? 'border-amber-500 focus:border-amber-600'
+                    : 'border-gray-200 focus:border-[#144e40]'
+                }`}
               />
+            </div>
+            {digitosCelular.length > 0 && !digitosCelular.startsWith('9') && (
+              <p className="text-[11px] text-amber-700 mt-1.5 font-medium">
+                El número de celular en Perú debe empezar con 9 y tener 9 dígitos.
+              </p>
+            )}
+
+            {/* Selector de Canal de Envío: SMS o WhatsApp */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">Recibir por:</span>
+              <button
+                type="button"
+                onClick={() => setCanal('SMS')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                  canal === 'SMS'
+                    ? 'bg-[#144e40] text-white border-[#144e40]'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                SMS
+              </button>
+              <button
+                type="button"
+                onClick={() => setCanal('WHATSAPP')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                  canal === 'WHATSAPP'
+                    ? 'bg-[#144e40] text-white border-[#144e40]'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                WhatsApp
+              </button>
             </div>
           </div>
         ) : (
@@ -98,37 +164,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <input 
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setErrorMsg('');
+                setEmail(e.target.value);
+              }}
               placeholder="vecino@correo.com"
               className="w-full h-12 bg-white rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-900 outline-none focus:border-[#144e40]"
             />
           </div>
         )}
 
+        {errorMsg && (
+          <p className="text-xs text-red-600 font-medium mb-3 text-center">
+            {errorMsg}
+          </p>
+        )}
+
         {/* Botón Enviarme el código */}
         <button
           onClick={handleSubmit}
-          disabled={!isValid}
+          disabled={!isValid || isSending}
           className={`w-full py-3.5 bg-black text-white font-bold rounded-xl text-base transition cursor-pointer ${
-            !isValid ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
+            !isValid || isSending ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
           }`}
         >
-          Enviarme el código
+          {isSending ? 'Enviando código...' : 'Enviarme el código'}
         </button>
 
-        {/* Tarjeta Recuperación con DNI */}
-        <div 
-          onClick={onOpenScanner}
-          className="mt-6 flex items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-xs hover:border-[#144e40] transition cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-700 mr-3.5 shrink-0">
-            <CreditCard className="w-5 h-5" />
+        {/* Banner de Verificación en 2 Pasos (2FA) */}
+        <div className="mt-6 flex items-center bg-[#eef6f2] p-4 rounded-2xl border border-[#cde4d8]">
+          <div className="w-10 h-10 rounded-xl bg-[#d6eee2] flex items-center justify-center text-[#144e40] mr-3.5 shrink-0">
+            <ShieldCheck className="w-5 h-5" />
           </div>
           <div className="flex-1">
-            <h4 className="font-bold text-sm text-gray-900">¿Perdiste tu celular o correo?</h4>
-            <p className="text-xs text-gray-500">Recupera tu cuenta escaneando tu DNI</p>
+            <h4 className="font-bold text-sm text-gray-900">Acceso seguro en 2 pasos (2FA)</h4>
+            <p className="text-xs text-gray-600">1. Verificamos tu código · 2. Escaneas tu DNI para entrar</p>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-400" />
         </div>
       </div>
 

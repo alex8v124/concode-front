@@ -1,6 +1,7 @@
 export type ScreenId = 
   | 'welcome'          // 1. Bienvenida
-  | 'login'            // 2. Iniciar sesión
+  | 'login'            // 2. Iniciar sesión (Paso 1: Solicitar código)
+  | 'login_dni_step'   // 2.b Iniciar sesión (Paso 2: Escaneo 2FA de DNI)
   | 'register_step1'   // 3. Registro (Paso 1: Tus datos)
   | 'domicilio_step2'  // 4. Domicilio (Paso 2: Tu domicilio / Ubica tu casa)
   | 'confirm_step3'    // 5. Confirmación (Paso 3: Confirma)

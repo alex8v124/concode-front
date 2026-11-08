@@ -1,22 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { apiService } from '../services/api';
+import { formatearCelularInternacional } from '../utils/phone';
 
 interface OtpVerificationScreenProps {
   onBack: () => void;
   phone: string;
+  devCode?: string;
+  canal?: 'SMS' | 'WHATSAPP';
+  mode?: 'login' | 'register';
   onVerifySuccess: () => void;
 }
 
 export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   onBack,
   phone,
+  devCode,
+  canal = 'SMS',
+  mode = 'login',
   onVerifySuccess
 }) => {
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const [countdown, setCountdown] = useState<number>(30);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [isResending, setIsResending] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [codigoActual, setCodigoActual] = useState<string>(devCode || apiService.getUltimoCodigoOtp() || '1234');
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (devCode) {
+      setCodigoActual(devCode);
+    }
+  }, [devCode]);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -46,20 +62,54 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
 
   const isComplete = digits.every(d => d !== '');
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
+    if (!isComplete || isVerifying) return;
     setIsVerifying(true);
     setErrorMessage('');
 
-    setTimeout(() => {
+    const code = digits.join('');
+    try {
+      await apiService.verifyOtp(phone, code);
       setIsVerifying(false);
       onVerifySuccess();
-    }, 600);
+    } catch (err: unknown) {
+      setIsVerifying(false);
+      setErrorMessage(err instanceof Error ? err.message : 'El código ingresado es incorrecto.');
+    }
+  };
+
+  const handleResend = async () => {
+    if (isResending) return;
+    setIsResending(true);
+    setErrorMessage('');
+    try {
+      const resp = await apiService.sendOtp(phone || '987654321', canal);
+      if (resp?.devCode) {
+        setCodigoActual(resp.devCode);
+      }
+      setDigits(['', '', '', '']);
+      setCountdown(30);
+      inputRefs.current[0]?.focus();
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'No pudimos reenviar el código.');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleQuickFill = () => {
-    setDigits(['1', '2', '3', '4']);
+    const chars = (codigoActual || '1234').slice(0, 4).split('');
+    if (chars.length === 4) {
+      setDigits(chars);
+    } else {
+      setDigits(['1', '2', '3', '4']);
+    }
     setErrorMessage('');
   };
+
+  const telefonoFormateado = phone?.includes('@')
+    ? phone
+    : formatearCelularInternacional(phone || '987654321');
 
   return (
     <div className="flex flex-col justify-between h-full px-6 py-6 bg-surface-bg select-none">
@@ -80,16 +130,19 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         
         {/* Subtítulo */}
         <p className="text-[12px] text-ink-secondary leading-normal mb-4">
-          Enviamos 4 dígitos por mensaje de texto a tu celular.
+          Enviamos 4 dígitos por {canal === 'WHATSAPP' ? 'WhatsApp' : 'mensaje de texto (SMS)'} a tu celular.{mode === 'login' ? ' Luego escanearás tu DNI para entrar.' : ''}
         </p>
 
         {/* Caja de Número de Celular */}
         <div className="mb-5">
           <label className="block text-[11px] font-medium text-ink-primary mb-1">
-            Número de celular
+            Número de celular verificado
           </label>
-          <div className="w-full rounded-xl bg-white border border-surface-border px-3.5 py-2.5 text-[13px] font-medium text-ink-primary shadow-2xs">
-            {phone || '987 654 321'}
+          <div className="w-full rounded-xl bg-white border border-surface-border px-3.5 py-2.5 text-[13px] font-semibold text-ink-primary shadow-2xs flex items-center justify-between">
+            <span>{telefonoFormateado}</span>
+            <span className="text-[10px] font-bold text-brand-800 bg-brand-100 px-2 py-0.5 rounded-full">
+              {canal}
+            </span>
           </div>
         </div>
 
@@ -110,12 +163,12 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
           ))}
         </div>
 
-        {/* Notificación rápida de demostración */}
+        {/* Notificación de código OTP recibido */}
         <div 
           onClick={handleQuickFill}
           className="self-center inline-flex items-center gap-1.5 text-[11px] text-brand-800 bg-brand-100 hover:bg-brand-200 px-3 py-1 rounded-full cursor-pointer transition mb-2"
         >
-          <span>SMS Recibido: <strong>1234</strong> (Toca para autollenar)</span>
+          <span>{canal} Recibido: <strong>{codigoActual}</strong> (Toca para autollenar)</span>
         </div>
 
         {errorMessage && (
@@ -132,10 +185,11 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
             </p>
           ) : (
             <button
-              onClick={() => setCountdown(30)}
+              onClick={handleResend}
+              disabled={isResending}
               className="text-[12px] font-semibold text-brand-800 hover:underline cursor-pointer"
             >
-              Reenviar código por SMS
+              {isResending ? 'Reenviando código...' : `Reenviar código por ${canal}`}
             </button>
           )}
         </div>
@@ -152,7 +206,11 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
               : 'bg-surface-mutedBtn text-surface-mutedText cursor-not-allowed'
           }`}
         >
-          {isVerifying ? 'Verificando...' : 'Verificar'}
+          {isVerifying
+            ? 'Verificando...'
+            : mode === 'login'
+              ? 'Verificar código y continuar al DNI'
+              : 'Verificar y entrar'}
         </button>
       </div>
     </div>

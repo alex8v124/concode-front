@@ -9,13 +9,13 @@ import { OtpScreen } from './src/screens/OtpScreen';
 import { OcrErrorScreen } from './src/screens/OcrErrorScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
 import { BarrioHomeScreen } from './src/screens/BarrioHomeScreen';
-import { RestablecerAccesoScreen } from './src/screens/RestablecerAccesoScreen';
+import { LoginDniStepScreen } from './src/screens/LoginDniStepScreen';
 import { mobileApiService } from './src/services/api';
 
 export type ScreenName = 
   | 'welcome' 
   | 'login' 
-  | 'restablecer_acceso'
+  | 'login_dni_step'
   | 'register_step1' 
   | 'domicilio_step2' 
   | 'confirm_step3' 
@@ -68,21 +68,26 @@ export default function App() {
             setCurrentScreen('otp');
           }}
           onRegister={() => setCurrentScreen('register_step1')}
-          onRestablecerAcceso={() => setCurrentScreen('restablecer_acceso')}
-          onScanSuccess={(data) => {
-            setUserData(prev => ({ ...prev, ...data, dniVerified: true }));
-          }}
-          onScanError={() => setCurrentScreen('ocr_error')}
         />
       )}
 
-      {currentScreen === 'restablecer_acceso' && (
-        <RestablecerAccesoScreen
-          onBack={() => setCurrentScreen('login')}
-          onSuccessRecovery={(data) => {
-            setUserData(prev => ({ ...prev, ...data, dniVerified: true }));
-            setCurrentScreen('login');
+      {currentScreen === 'login_dni_step' && (
+        <LoginDniStepScreen
+          phone={userData.phone}
+          onBack={() => setCurrentScreen('otp')}
+          onScanSuccess={(data) => {
+            setUserData(prev => ({
+              ...prev,
+              dni: data.dni,
+              firstName: data.firstName,
+              lastName: data.lastName,
+              age: data.age,
+              gender: data.gender,
+              dniVerified: true,
+            }));
+            setCurrentScreen('barrio');
           }}
+          onScanError={() => setCurrentScreen('ocr_error')}
         />
       )}
 
@@ -135,13 +140,14 @@ export default function App() {
           phone={userData.phone}
           devCode={otpDevCode}
           canal={otpCanal}
+          mode={otpOrigin}
           onBack={() => setCurrentScreen(otpOrigin === 'register' ? 'confirm_step3' : 'login')}
           onVerify={() => {
             if (otpOrigin === 'register') {
               mobileApiService.completarAlta();
               setCurrentScreen('success');
             } else {
-              setCurrentScreen('barrio');
+              setCurrentScreen('login_dni_step');
             }
           }}
         />
@@ -149,9 +155,9 @@ export default function App() {
 
       {currentScreen === 'ocr_error' && (
         <OcrErrorScreen 
-          onBack={() => setCurrentScreen('register_step1')}
-          onRetry={() => setCurrentScreen('register_step1')}
-          onManual={() => setCurrentScreen('register_step1')}
+          onBack={() => setCurrentScreen(otpOrigin === 'login' ? 'login_dni_step' : 'register_step1')}
+          onRetry={() => setCurrentScreen(otpOrigin === 'login' ? 'login_dni_step' : 'register_step1')}
+          onManual={() => setCurrentScreen(otpOrigin === 'login' ? 'login_dni_step' : 'register_step1')}
         />
       )}
 
