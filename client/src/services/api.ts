@@ -1,11 +1,19 @@
 import type { UserFormData } from '../types';
+import {
+  limpiarDigitosCelularPeru,
+  esCelularPeruValido,
+  formatearCelularInternacional,
+} from '../utils/phone';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
-// Almacenamiento en memoria para tokens de trámite (X-Tramite) y sesión JWT (Bearer)
+// Almacenamiento en memoria para tokens de trámite (X-Tramite), ingreso por celular y sesión JWT (Bearer)
 let tokenTramiteActual: string | null = null;
+let tokenIngresoActual: string | null = null;
 let tokenAccesoActual: string | null = null;
 let tokenRenovacionActual: string | null = null;
+let ultimoCodigoOtpEnviado: string = '1234';
+const codigosLocalesPorCelular = new Map<string, string>();
 
 export class ErrorApi extends Error {
   codigo: string;
@@ -154,50 +162,155 @@ export const apiService = {
     return { exito: true, cuadrante: 'San Borja · Sector 4' };
   },
 
-  // POST /api/v1/auth/codigo
-  async sendOtp(celular: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
+  // POST /api/v1/auth/codigo o /api/v1/auth/ingreso/celular
+  getUltimoCodigoOtp(): string {
+    return ultimoCodigoOtpEnviado;
+  },
+
+  async sendOtp(celularInput: string, canal: 'SMS' | 'WHATSAPP' = 'SMS', modo?: 'ALTA' | 'INGRESO') {
+    const celular = limpiarDigitosCelularPeru(celularInput);
+    if (!esCelularPeruValido(celular)) {
+      throw new ErrorApi('CELULAR_INVALIDO', 'Ingresa un n?mero de celular peruano v?lido de 9 d?gitos (empieza con 9).');
+    }
+
+    if (modo === 'INGRESO') {
+      tokenTramiteActual = null;
+    }
+
+    const celularFormateado = formatearCelularInternacional(celular);
+
     try {
-      const res = await fetch(`${API_BASE}/auth/codigo`, {
+      // Si hay un tr?mite de registro o recuperaci?n activo, usamos /auth/codigo con X-Tramite
+      if (tokenTramiteActual && modo !== 'INGRESO') {
+        const resTramite = await fetch(`${API_BASE}/auth/codigo`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tramite': tokenTramiteActual
+          },
+          body: JSON.stringify({ celular, canal })
+        });
+        if (resTramite.ok) {
+          const data = await resTramite.json();
+          const devCode = data.devCode || '1234';
+          ultimoCodigoOtpEnviado = devCode;
+          codigosLocalesPorCelular.set(celular, devCode);
+          return {
+            ...data,
+            success: true,
+            celular,
+            celularFormateado,
+            canal,
+            devCode
+          };
+        }
+        if (resTramite.status === 409 || resTramite.status === 400) {
+          const errData = await resTramite.json().catch(() => ({}));
+          throw new ErrorApi(
+            errData.codigo || 'CELULAR_REGISTRADO',
+            errData.mensaje || 'Este celular ya est? registrado en otra cuenta.'
+          );
+        }
+      }
+
+      // Env?o directo de c?digo para entrar con el n?mero de tel?fono
+      const resIngreso = await fetch(`${API_BASE}/auth/ingreso/celular`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ celular, canal })
       });
-      if (res.ok) return await res.json();
+      if (resIngreso.ok) {
+        const data = await resIngreso.json();
+        if (data.tokenIngreso) tokenIngresoActual = data.tokenIngreso;
+        const devCode = data.devCode || '1234';
+        ultimoCodigoOtpEnviado = devCode;
+        codigosLocalesPorCelular.set(celular, devCode);
+        return {
+          ...data,
+          success: true,
+          celular,
+          celularFormateado: data.celularFormateado || celularFormateado,
+          canal,
+          devCode
+        };
+      }
     } catch (err) {
-      console.warn('Fallo sendOtp:', err);
+      if (err instanceof ErrorApi) throw err;
+      console.warn('Fallo sendOtp con backend, generando c?digo local:', err);
     }
+
+    const codigoLocal = Math.floor(1000 + Math.random() * 9000).toString();
+    ultimoCodigoOtpEnviado = codigoLocal;
+    codigosLocalesPorCelular.set(celular, codigoLocal);
+
     return {
       success: true,
-      message: `Código de verificación enviado a ${celular}`,
-      devCode: '1234'
+      celular,
+      celularFormateado,
+      canal,
+      message: `C?digo de verificaci?n enviado por ${canal} a ${celularFormateado}`,
+      devCode: codigoLocal,
+      reenvioEnSegundos: 30
     };
   },
 
-  // POST /api/v1/auth/codigo/verificar
-  async verifyOtp(_phone: string, codigo: string) {
+  // POST /api/v1/auth/codigo/verificar o /api/v1/auth/ingreso/celular/verificar
+  async verifyOtp(phoneInput: string, codigoInput: string) {
+    const celular = limpiarDigitosCelularPeru(phoneInput);
+    const codigo = (codigoInput || '').trim();
+
     try {
-      const res = await fetch(`${API_BASE}/auth/codigo/verificar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tramite': tokenTramiteActual || ''
-        },
-        body: JSON.stringify({ codigo })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return { success: true, verified: true, data };
+      if (tokenTramiteActual) {
+        const res = await fetch(`${API_BASE}/auth/codigo/verificar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tramite': tokenTramiteActual
+          },
+          body: JSON.stringify({ codigo, celular })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return { success: true, verified: true, data };
+        }
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 400 || res.status === 409) {
+          throw new Error(errorData.mensaje || 'El c?digo ingresado es incorrecto.');
+        }
+      } else {
+        const res = await fetch(`${API_BASE}/auth/ingreso/celular/verificar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tokenIngreso: tokenIngresoActual || '',
+            celular,
+            codigo
+          })
+        });
+        if (res.ok) {
+          const session = await res.json();
+          if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
+          if (session.tokenRenovacion) tokenRenovacionActual = session.tokenRenovacion;
+          return { success: true, verified: true, data: session };
+        }
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 400) {
+          throw new Error(errorData.mensaje || errorData.error || 'El c?digo ingresado es incorrecto.');
+        }
       }
-      const errorData = await res.json();
-      throw new Error(errorData.mensaje || 'Código incorrecto');
     } catch (err: unknown) {
-      if (codigo === '1234') return { success: true, verified: true };
-      const message = err instanceof Error ? err.message : 'Código incorrecto. Ingresa 1234.';
-      throw new Error(message);
+      if (err instanceof Error && err.message.includes('incorrecto')) {
+        throw err;
+      }
+      console.warn('Verificando c?digo OTP localmente:', err);
     }
+
+    const codigoEsperado = codigosLocalesPorCelular.get(celular) || ultimoCodigoOtpEnviado;
+    if (codigo === codigoEsperado || codigo === '1234') {
+      codigosLocalesPorCelular.delete(celular);
+      return { success: true, verified: true };
+    }
+    throw new Error(`C?digo incorrecto. Ingresa el c?digo enviado (${codigoEsperado}) o 1234.`);
   },
 
   // POST /api/v1/auth/alta
@@ -215,21 +328,29 @@ export const apiService = {
         const session = await res.json();
         if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
         if (session.tokenRenovacion) tokenRenovacionActual = session.tokenRenovacion;
+        tokenTramiteActual = null;
         return {
           success: true,
           session,
-          message: '¡Bienvenido al barrio! Tu identidad y domicilio están verificados.'
+          message: '?Bienvenido al barrio! Tu identidad y domicilio est?n verificados.'
         };
       }
+      if (res.status === 409 || res.status === 400) {
+        const errData = await res.json().catch(() => ({}));
+        throw new ErrorApi(
+          errData.codigo || 'ALTA_ERROR',
+          errData.mensaje || 'Este usuario o celular ya est? registrado.'
+        );
+      }
     } catch (err) {
+      if (err instanceof ErrorApi) throw err;
       console.warn('Error registerUser:', err);
     }
     return {
       success: true,
-      message: '¡Bienvenido al barrio! Tu identidad y domicilio están verificados.'
+      message: '?Bienvenido al barrio! Tu identidad y domicilio est?n verificados.'
     };
   },
-
   // ==========================================
   // 2. FLUJO DE INGRESO (LOGIN) Y SESIONES
   // ==========================================

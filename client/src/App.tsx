@@ -125,7 +125,7 @@ export const App: React.FC = () => {
               setOtpOrigin('login');
               setOtpCanal(canal);
               if (!phone.includes('@')) {
-                const resp = await apiService.sendOtp(phone, canal);
+                const resp = await apiService.sendOtp(phone, canal, 'INGRESO');
                 if (resp?.devCode) setOtpDevCode(resp.devCode);
               } else {
                 setOtpDevCode('1234');
@@ -186,7 +186,7 @@ export const App: React.FC = () => {
             onEditLocation={() => setCurrentScreen('domicilio_step2')}
             onRegisterSubmit={async () => {
               setOtpOrigin('register');
-              const resp = await apiService.sendOtp(data.phone || '987654321', otpCanal);
+              const resp = await apiService.sendOtp(data.phone || '987654321', otpCanal, 'ALTA');
               if (resp?.devCode) setOtpDevCode(resp.devCode);
               setCurrentScreen('otp_verify');
             }}
@@ -206,9 +206,9 @@ export const App: React.FC = () => {
             devCode={otpDevCode}
             canal={otpCanal}
             mode={otpOrigin}
-            onVerifySuccess={() => {
+            onVerifySuccess={async () => {
               if (otpOrigin === 'register') {
-                apiService.registerUser(data);
+                await apiService.registerUser(data);
                 setCurrentScreen('welcome_success');
               } else {
                 setCurrentScreen('login_dni_step');
@@ -374,6 +374,7 @@ export const App: React.FC = () => {
         onClose={() => setIsScannerOpen(false)}
         onScanSuccess={handleScanSuccess}
         onScanError={handleScanError}
+        modo={scannerContext === 'login' ? 'INGRESO' : 'ALTA'}
         title={scannerContext === 'login' ? 'Escanear DNI para Iniciar Sesión' : 'Escanear DNI para Registrarte'}
       />
     </>

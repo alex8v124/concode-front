@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createWorker } from 'tesseract.js';
 import { leerMrz, formatearNombre, type DatosMrz } from '../utils/mrz';
-import { apiService } from '../services/api';
+import { apiService, ErrorApi } from '../services/api';
 import { X, Upload, AlertCircle, Sparkles } from 'lucide-react';
 
 interface DniScannerModalProps {
@@ -16,6 +16,7 @@ interface DniScannerModalProps {
   }) => void;
   onScanError: () => void;
   title?: string;
+  modo?: 'ALTA' | 'INGRESO';
 }
 
 export const DniScannerModal: React.FC<DniScannerModalProps> = ({
@@ -23,7 +24,8 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
   onClose,
   onScanSuccess,
   onScanError,
-  title = "Detector Automático de DNI (OCR)"
+  title = "Detector Automático de DNI (OCR)",
+  modo = 'ALTA',
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -219,22 +221,23 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
   const procesarDniLeido = async (mrz: DatosMrz) => {
     setStatusMessage('¡DNI leído con éxito! Verificando con RENIEC...');
     setIsOcrActive(true);
-
-    let reniec = null;
-    try {
-      reniec = await apiService.consultarReniec(mrz.dni);
-    } catch (e) {
-      console.warn('Consulta previa a RENIEC falló:', e);
-    }
+    setErrorMessage('');
 
     try {
       const res = await apiService.validarDni(mrz.dni, 'ESCANEO', mrz.fechaNacimiento, mrz.sexo);
 
+      if (modo === 'INGRESO') {
+        setErrorMessage('Este DNI aún no tiene una cuenta registrada en DeBarrio. Regístrate primero.');
+        setStatusMessage('DNI no registrado.');
+        setIsOcrActive(false);
+        return;
+      }
+
       if (res && res.datos) {
         onScanSuccess({
           dni: res.datos.dni || mrz.dni,
-          firstName: res.datos.nombres || reniec?.nombres || formatearNombre(mrz.nombres),
-          lastName: `${res.datos.apellidoPaterno || reniec?.apellidoPaterno || mrz.apellidoPaterno} ${res.datos.apellidoMaterno || reniec?.apellidoMaterno || mrz.apellidoMaterno}`.trim(),
+          firstName: res.datos.nombres || formatearNombre(mrz.nombres),
+          lastName: `${res.datos.apellidoPaterno || mrz.apellidoPaterno} ${res.datos.apellidoMaterno || mrz.apellidoMaterno}`.trim(),
           age: res.datos.edad || mrz.edad,
           gender: res.datos.sexo === 'F' ? 'Femenino' : 'Masculino'
         });
@@ -242,10 +245,38 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
         return;
       }
     } catch (err: any) {
+      if (err instanceof ErrorApi) {
+        if (modo === 'ALTA' && (err.codigo === 'DNI_REGISTRADO' || err.codigo === 'MENOR_DE_EDAD')) {
+          setErrorMessage(err.message || 'Este DNI ya está registrado en DeBarrio. Inicia sesión.');
+          setStatusMessage('DNI ya registrado.');
+          setIsOcrActive(false);
+          return;
+        }
+        if (modo === 'INGRESO' && err.codigo === 'DNI_REGISTRADO') {
+          let reniec = null;
+          try {
+            reniec = await apiService.consultarReniec(mrz.dni);
+          } catch {}
+          onScanSuccess({
+            dni: mrz.dni,
+            firstName: reniec?.nombres || formatearNombre(mrz.nombres),
+            lastName: reniec ? `${reniec.apellidoPaterno} ${reniec.apellidoMaterno}`.trim() : formatearNombre(`${mrz.apellidoPaterno} ${mrz.apellidoMaterno}`.trim()),
+            age: mrz.edad || 25,
+            gender: mrz.sexo === 'F' ? 'Femenino' : 'Masculino'
+          });
+          onClose();
+          return;
+        }
+      }
       console.warn('Error al validar con backend:', err);
     }
 
-    // Fallback: Si el backend tiene problema con sp_tramite_iniciar, continuar con datos de RENIEC/OCR
+    let reniec = null;
+    try {
+      reniec = await apiService.consultarReniec(mrz.dni);
+    } catch {}
+
+    // Fallback: Si el backend no es alcanzable, continuar con datos de RENIEC/OCR
     onScanSuccess({
       dni: mrz.dni,
       firstName: reniec?.nombres || formatearNombre(mrz.nombres),

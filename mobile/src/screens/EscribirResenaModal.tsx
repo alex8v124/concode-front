@@ -9,7 +9,7 @@ import {
   Modal,
   SafeAreaView,
   Platform,
-  Alert
+  Alert,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
@@ -46,8 +46,8 @@ export const EscribirResenaModal: React.FC<Props> = ({
   onSubmitSuccess,
 }) => {
   const [rating, setRating] = useState<number>(0);
-  const [recomienda, setRecomienda] = useState<boolean | null>(true);
-  const [selectedTags, setSelectedTags] = useState<string[]>(['Puntual', 'Trabajo limpio']);
+  const [recomienda, setRecomienda] = useState<boolean>(true);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [comentario, setComentario] = useState<string>('');
 
   const toggleTag = (tag: string) => {
@@ -58,14 +58,13 @@ export const EscribirResenaModal: React.FC<Props> = ({
     }
   };
 
+  const isValid = rating > 0;
+
   const handlePublicar = () => {
-    if (rating === 0) {
-      Alert.alert('Calificación requerida', 'Por favor toca las estrellas para calificar el servicio.');
-      return;
-    }
+    if (!isValid) return;
     onSubmitSuccess({
       rating,
-      recomienda: recomienda ?? true,
+      recomienda,
       tags: selectedTags,
       comentario: comentario.trim(),
     });
@@ -73,36 +72,26 @@ export const EscribirResenaModal: React.FC<Props> = ({
     onClose();
   };
 
+  const nombrePrimer = targetNeighbor?.nombre?.split(' ')[0] || 'Rosa';
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          
-          {/* Header */}
-          <View style={styles.header}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheetContainer}>
+          {/* Barra de arrastre y cerrar */}
+          <View style={styles.headerBar}>
+            <View style={{ width: 32 }} />
+            <View style={styles.dragHandle} />
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Feather name="x" size={22} color="#111827" />
+              <Feather name="x" size={18} color="#6b7280" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Escribir reseña</Text>
-            <View style={{ width: 36 }} />
           </View>
 
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            
-            {/* Target Neighbor Card */}
-            <View style={styles.neighborCard}>
-              <View style={styles.neighborAvatar}>
-                <Text style={styles.neighborAvatarText}>{targetNeighbor.iniciales}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.neighborName}>{targetNeighbor.nombre}</Text>
-                <Text style={styles.neighborDetail}>
-                  {targetNeighbor.rubro} · {targetNeighbor.fechaAtencion || 'te atendió el 7 de noviembre'}
-                </Text>
-              </View>
-            </View>
-
-            {/* ¿Cómo fue el servicio? (Estrellas) */}
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Sección 1: ¿Cómo fue el servicio? */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>¿Cómo fue el servicio?</Text>
               <View style={styles.starsRow}>
@@ -116,45 +105,59 @@ export const EscribirResenaModal: React.FC<Props> = ({
                     <Ionicons
                       name={s <= rating ? 'star' : 'star-outline'}
                       size={36}
-                      color={s <= rating ? '#f59e0b' : '#d1d5db'}
+                      color={s <= rating ? '#f59e0b' : '#9ca3af'}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
               <Text style={styles.starsHelper}>
-                {rating === 0 ? 'Toca una estrella para calificar' : `${rating} de 5 estrellas seleccionadas`}
+                {rating === 0 ? 'Toca una estrella para calificar' : `${rating} de 5 estrellas`}
               </Text>
             </View>
 
-            {/* ¿Le das tu Visto Bueno Vecinal? */}
+            {/* Sección 2: ¿Le das tu Visto Bueno Vecinal? */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>¿Le das tu Visto Bueno Vecinal?</Text>
               <View style={styles.recomiendaRow}>
                 <TouchableOpacity
-                  style={[styles.recomiendaBtn, recomienda === true && styles.recomiendaBtnActive]}
+                  style={[
+                    styles.recomiendaBtn, 
+                    recomienda && styles.recomiendaBtnActive
+                  ]}
                   onPress={() => setRecomienda(true)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.recomiendaText, recomienda === true && styles.recomiendaTextActive]}>
+                  <Text style={[
+                    styles.recomiendaText, 
+                    recomienda && styles.recomiendaTextActive
+                  ]}>
                     Sí, la recomiendo
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.recomiendaBtn, recomienda === false && styles.recomiendaBtnActive]}
+                  style={[
+                    styles.recomiendaBtn, 
+                    !recomienda && styles.recomiendaBtnActiveNo
+                  ]}
                   onPress={() => setRecomienda(false)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.recomiendaText, recomienda === false && styles.recomiendaTextActive]}>
+                  <Text style={[
+                    styles.recomiendaText, 
+                    !recomienda && styles.recomiendaTextActiveNo
+                  ]}>
                     Todavía no
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* ¿Qué destacas? (opcional) */}
+            {/* Sección 3: ¿Qué destacas? (opcional) */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>¿Qué destacas? (opcional)</Text>
+              <Text style={styles.sectionTitle}>
+                ¿Qué destacas? <Text style={styles.optionalText}>(opcional)</Text>
+              </Text>
               <View style={styles.tagsContainer}>
                 {TAGS_DESTACADOS.map((tag) => {
                   const isSelected = selectedTags.includes(tag);
@@ -174,133 +177,131 @@ export const EscribirResenaModal: React.FC<Props> = ({
               </View>
             </View>
 
-            {/* Cuéntales a tus vecinos */}
+            {/* Sección 4: Cuéntales a tus vecinos */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Cuéntales a tus vecinos</Text>
-              <TextInput
-                style={styles.textArea}
-                placeholder="¿Qué hizo? ¿Llegó a tiempo? ¿Cobró lo acordado?"
-                placeholderTextColor="#9ca3af"
-                multiline
-                numberOfLines={4}
-                maxLength={280}
-                value={comentario}
-                onChangeText={setComentario}
-                textAlignVertical="top"
-              />
+              <View style={styles.textAreaContainer}>
+                <TextInput
+                  style={styles.textArea}
+                  placeholder="¿Qué hizo? ¿Llegó a tiempo? ¿Cobró lo acordado?"
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  maxLength={280}
+                  value={comentario}
+                  onChangeText={setComentario}
+                  textAlignVertical="top"
+                />
+              </View>
               <Text style={styles.counterText}>
-                {comentario.length} / 280 caracteres
+                Máximo 280 caracteres
+              </Text>
+            </View>
+
+            {/* Sección 5: Banner de verificación y transparencia */}
+            <View style={styles.shieldBanner}>
+              <Feather name="shield" size={18} color="#144e40" style={styles.shieldIcon} />
+              <Text style={styles.shieldText}>
+                Puedes reseñar porque contactaste a {nombrePrimer} por la app. Tu reseña se publica con tu nombre y tu manzana.
               </Text>
             </View>
 
             {/* Botón Publicar Reseña */}
             <TouchableOpacity
-              style={styles.submitBtn}
+              style={[
+                styles.submitBtn,
+                isValid ? styles.submitBtnActive : styles.submitBtnDisabled
+              ]}
               onPress={handlePublicar}
+              disabled={!isValid}
               activeOpacity={0.85}
             >
-              <Text style={styles.submitBtnText}>Publicar reseña</Text>
+              <Text style={[
+                styles.submitBtnText,
+                isValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled
+              ]}>
+                Publicar reseña
+              </Text>
             </TouchableOpacity>
 
           </ScrollView>
-
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  backdrop: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
+  sheetContainer: {
+    backgroundColor: '#f7f8f4',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    maxHeight: '92%',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
   },
-  header: {
+  headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 12 : 8,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  dragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d1d5db',
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f3f4f6',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   scrollContent: {
-    padding: 20,
-    gap: 20,
-  },
-  neighborCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    gap: 12,
-  },
-  neighborAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#d6eee2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  neighborAvatarText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#144e40',
-  },
-  neighborName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  neighborDetail: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 20,
+    gap: 18,
   },
   section: {
-    gap: 10,
+    gap: 8,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#111827',
+  },
+  optionalText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#6b7280',
   },
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 6,
+    gap: 8,
+    paddingVertical: 4,
   },
   starTouch: {
-    padding: 4,
+    padding: 2,
   },
   starsHelper: {
     fontSize: 12,
     color: '#6b7280',
-    textAlign: 'center',
+    fontWeight: '500',
   },
   recomiendaRow: {
     flexDirection: 'row',
@@ -308,8 +309,9 @@ const styles = StyleSheet.create({
   },
   recomiendaBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#e5e7eb',
     backgroundColor: '#ffffff',
@@ -318,15 +320,25 @@ const styles = StyleSheet.create({
   },
   recomiendaBtnActive: {
     borderColor: '#144e40',
-    backgroundColor: '#d6eee2',
+    borderWidth: 2,
+    backgroundColor: '#ffffff',
+  },
+  recomiendaBtnActiveNo: {
+    borderColor: '#d97706',
+    borderWidth: 2,
+    backgroundColor: '#ffffff',
   },
   recomiendaText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4b5563',
+    color: '#374151',
   },
   recomiendaTextActive: {
     color: '#144e40',
+    fontWeight: '700',
+  },
+  recomiendaTextActiveNo: {
+    color: '#b45309',
     fontWeight: '700',
   },
   tagsContainer: {
@@ -335,57 +347,96 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tagChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   tagChipActive: {
     borderColor: '#144e40',
     backgroundColor: '#144e40',
   },
   tagChipText: {
-    fontSize: 12,
-    color: '#4b5563',
+    fontSize: 13,
+    color: '#374151',
     fontWeight: '500',
   },
   tagChipTextActive: {
     color: '#ffffff',
     fontWeight: '700',
   },
-  textArea: {
+  textAreaContainer: {
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
-    height: 100,
-    fontSize: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  textArea: {
+    minHeight: 84,
+    fontSize: 13.5,
     color: '#111827',
-    backgroundColor: '#fafafa',
+    lineHeight: 20,
   },
   counterText: {
     fontSize: 11,
     color: '#9ca3af',
     textAlign: 'right',
+    fontWeight: '500',
+  },
+  shieldBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#e8f5ec',
+    borderColor: '#c3e6cf',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+  },
+  shieldIcon: {
+    marginTop: 2,
+  },
+  shieldText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#144e40',
+    lineHeight: 18,
+    fontWeight: '500',
   },
   submitBtn: {
-    backgroundColor: '#144e40',
-    borderRadius: 24,
+    borderRadius: 20,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    shadowColor: '#000',
+    marginTop: 4,
+  },
+  submitBtnActive: {
+    backgroundColor: '#144e40',
+    shadowColor: '#144e40',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#ded8cc',
   },
   submitBtnText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  submitBtnTextActive: {
     color: '#ffffff',
+  },
+  submitBtnTextDisabled: {
+    color: '#787165',
   },
 });

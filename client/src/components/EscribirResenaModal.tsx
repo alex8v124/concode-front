@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star } from 'lucide-react';
+import { X, Star, Shield } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -36,8 +36,8 @@ export const EscribirResenaModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const [rating, setRating] = useState<number>(0);
-  const [recomienda, setRecomienda] = useState<boolean | null>(true);
-  const [selectedTags, setSelectedTags] = useState<string[]>(['Puntual', 'Trabajo limpio']);
+  const [recomienda, setRecomienda] = useState<boolean>(true);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [comentario, setComentario] = useState<string>('');
 
   const toggleTag = (tag: string) => {
@@ -48,93 +48,100 @@ export const EscribirResenaModal: React.FC<Props> = ({
     }
   };
 
+  const isValid = rating > 0;
+
   const handlePublicar = () => {
-    if (rating === 0) {
-      alert('Por favor selecciona una calificación en estrellas.');
-      return;
-    }
+    if (!isValid) return;
     onSubmitSuccess({
       rating,
-      recomienda: recomienda ?? true,
+      recomienda,
       tags: selectedTags,
       comentario: comentario.trim(),
     });
-    alert(`¡Gracias! Se publicó tu reseña y Visto Bueno para ${targetNeighbor.nombre}.`);
     onClose();
   };
 
+  const nombrePrimer = targetNeighbor?.nombre?.split(' ')[0] || 'Rosa';
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 select-none">
-      <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 select-none animate-fadeIn">
+      <div className="bg-[#f7f8f4] w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[92vh] border border-gray-200/80">
         
-        {/* Cabecera */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+        {/* Barra de arrastre / Cabecera */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+          <div className="w-8" />
+          <div className="w-10 h-1 bg-gray-300 rounded-full" />
           <button 
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white shadow-2xs flex items-center justify-center text-gray-500 hover:text-gray-900 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
-          <h3 className="font-extrabold text-gray-900 text-sm">Escribir reseña</h3>
-          <div className="w-8" />
         </div>
 
-        {/* Formulario */}
-        <div className="p-5 overflow-y-auto flex flex-col gap-4">
+        {/* Contenido con scroll (Figma: Escribir reseña) */}
+        <div className="px-6 py-3 overflow-y-auto flex flex-col gap-5">
           
-          {/* Tarjeta del vecino */}
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-200">
-            <div className="w-10 h-10 rounded-full bg-[#d6eee2] text-[#144e40] flex items-center justify-center font-black text-sm shrink-0">
-              {targetNeighbor.iniciales}
+          {/* Sección 1: ¿Cómo fue el servicio? */}
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-[16px] font-bold text-gray-900">
+              ¿Cómo fue el servicio?
+            </h3>
+            
+            {/* 5 Estrellas */}
+            <div className="flex items-center gap-2.5 py-1">
+              {[1, 2, 3, 4, 5].map((s) => {
+                const filled = s <= rating;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setRating(s)}
+                    className="p-1 transition-transform hover:scale-115 active:scale-95 cursor-pointer"
+                  >
+                    <Star 
+                      className={`w-9 h-9 transition-colors ${
+                        filled 
+                          ? 'fill-amber-400 text-amber-400' 
+                          : 'fill-transparent text-gray-400 hover:text-gray-600'
+                      }`} 
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                );
+              })}
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="font-bold text-gray-900 text-xs truncate">{targetNeighbor.nombre}</h4>
-              <p className="text-[11px] text-gray-500 truncate">
-                {targetNeighbor.rubro} · {targetNeighbor.fechaAtencion || 'te atendió el 7 de noviembre'}
-              </p>
-            </div>
-          </div>
-
-          {/* ¿Cómo fue el servicio? */}
-          <div className="flex flex-col gap-1.5 text-center">
-            <label className="text-xs font-bold text-gray-900">¿Cómo fue el servicio?</label>
-            <div className="flex justify-center gap-2 py-1">
-              {[1, 2, 3, 4, 5].map(s => (
-                <button
-                  key={s}
-                  onClick={() => setRating(s)}
-                  className="p-1 hover:scale-110 transition cursor-pointer"
-                >
-                  <Star className={`w-8 h-8 ${s <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
-                </button>
-              ))}
-            </div>
-            <span className="text-[11px] text-gray-400">
+            
+            <p className="text-[12px] text-gray-500 font-medium">
               {rating === 0 ? 'Toca una estrella para calificar' : `${rating} de 5 estrellas`}
-            </span>
+            </p>
           </div>
 
-          {/* ¿Le das tu Visto Bueno Vecinal? */}
+          {/* Sección 2: ¿Le das tu Visto Bueno Vecinal? */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold text-gray-900">¿Le das tu Visto Bueno Vecinal?</label>
-            <div className="grid grid-cols-2 gap-2">
+            <h3 className="text-[15px] font-bold text-gray-900">
+              ¿Le das tu Visto Bueno Vecinal?
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
               <button 
+                type="button"
                 onClick={() => setRecomienda(true)}
-                className={`py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                  recomienda === true 
-                    ? 'border-[#144e40] bg-[#d6eee2] text-[#144e40]' 
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                className={`py-3 px-3 rounded-2xl text-[13px] font-bold transition cursor-pointer text-center ${
+                  recomienda 
+                    ? 'bg-white border-2 border-[#144e40] text-[#144e40] shadow-xs' 
+                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Sí, la recomiendo
               </button>
 
               <button 
+                type="button"
                 onClick={() => setRecomienda(false)}
-                className={`py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                  recomienda === false 
-                    ? 'border-[#144e40] bg-[#d6eee2] text-[#144e40]' 
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                className={`py-3 px-3 rounded-2xl text-[13px] font-bold transition cursor-pointer text-center ${
+                  !recomienda 
+                    ? 'bg-white border-2 border-amber-600 text-amber-800 shadow-xs' 
+                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Todavía no
@@ -142,20 +149,23 @@ export const EscribirResenaModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* ¿Qué destacas? (opcional) */}
+          {/* Sección 3: ¿Qué destacas? (opcional) */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold text-gray-900">¿Qué destacas? (opcional)</label>
-            <div className="flex flex-wrap gap-1.5">
-              {TAGS_DESTACADOS.map(tag => {
+            <h3 className="text-[15px] font-bold text-gray-900">
+              ¿Qué destacas? <span className="font-normal text-gray-500 text-[13px]">(opcional)</span>
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {TAGS_DESTACADOS.map((tag) => {
                 const isSelected = selectedTags.includes(tag);
                 return (
                   <button
                     key={tag}
+                    type="button"
                     onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-semibold transition cursor-pointer ${
+                    className={`px-4 py-2 rounded-full text-[12px] font-semibold transition cursor-pointer border ${
                       isSelected 
-                        ? 'bg-[#144e40] text-white shadow-2xs' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-[#144e40] text-white border-[#144e40] shadow-xs' 
+                        : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     {tag}
@@ -165,27 +175,51 @@ export const EscribirResenaModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Cuéntales a tus vecinos */}
+          {/* Sección 4: Cuéntales a tus vecinos */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-gray-900">Cuéntales a tus vecinos</label>
-            <textarea
-              placeholder="¿Qué hizo? ¿Llegó a tiempo? ¿Cobró lo acordado?"
-              maxLength={280}
-              rows={3}
-              value={comentario}
-              onChange={(e) => setComentario(e.target.value)}
-              className="w-full p-3 rounded-2xl border border-gray-200 text-xs text-gray-800 outline-none focus:border-[#144e40] resize-none"
-            />
-            <span className="text-[10px] text-gray-400 text-right">{comentario.length} / 280 caracteres</span>
+            <h3 className="text-[15px] font-bold text-gray-900">
+              Cuéntales a tus vecinos
+            </h3>
+            <div className="bg-white rounded-2xl border border-gray-200 p-3.5 focus-within:border-[#144e40] transition shadow-2xs">
+              <textarea
+                placeholder="¿Qué hizo? ¿Llegó a tiempo? ¿Cobró lo acordado?"
+                maxLength={280}
+                rows={3}
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+                className="w-full text-[13px] text-gray-900 placeholder:text-gray-400 outline-none resize-none bg-transparent leading-relaxed"
+              />
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] text-gray-400 font-medium">
+                Máximo 280 caracteres
+              </span>
+            </div>
           </div>
 
-          {/* Botón Publicar */}
-          <button 
-            onClick={handlePublicar}
-            className="w-full py-3 rounded-2xl bg-[#144e40] hover:bg-[#114034] text-white font-bold text-xs shadow-md transition cursor-pointer mt-1"
-          >
-            Publicar reseña
-          </button>
+          {/* Banner de Garantía y Transparencia Vecinal */}
+          <div className="flex items-start gap-3 bg-[#e8f5ec] p-3.5 rounded-2xl border border-[#c3e6cf]">
+            <Shield className="w-4 h-4 text-[#144e40] shrink-0 mt-0.5" />
+            <p className="text-[12px] text-[#144e40] font-medium leading-snug">
+              Puedes reseñar porque contactaste a {nombrePrimer} por la app. Tu reseña se publica con tu nombre y tu manzana.
+            </p>
+          </div>
+
+          {/* Botón Publicar reseña */}
+          <div className="pt-1 pb-3">
+            <button 
+              type="button"
+              onClick={handlePublicar}
+              disabled={!isValid}
+              className={`w-full py-3.5 rounded-2xl font-bold text-[15px] transition cursor-pointer ${
+                isValid
+                  ? 'bg-[#144e40] hover:bg-[#0f3d32] text-white shadow-xs active:scale-[0.99]'
+                  : 'bg-[#ded8cc] text-[#787165] cursor-not-allowed opacity-80'
+              }`}
+            >
+              Publicar reseña
+            </button>
+          </div>
 
         </div>
 

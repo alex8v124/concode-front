@@ -60,7 +60,7 @@ export default function App() {
             setOtpOrigin('login');
             setOtpCanal(canal);
             if (!identificador.includes('@')) {
-              const resp = await mobileApiService.solicitarCodigo(identificador, canal);
+              const resp = await mobileApiService.solicitarCodigo(identificador, canal, 'INGRESO');
               if (resp?.devCode) setOtpDevCode(resp.devCode);
             } else {
               setOtpDevCode('1234');
@@ -128,7 +128,7 @@ export default function App() {
           onBack={() => setCurrentScreen('domicilio_step2')}
           onConfirm={async () => {
             setOtpOrigin('register');
-            const resp = await mobileApiService.solicitarCodigo(userData.phone || '987654321', otpCanal);
+            const resp = await mobileApiService.solicitarCodigo(userData.phone || '987654321', otpCanal, 'ALTA');
             if (resp?.devCode) setOtpDevCode(resp.devCode);
             setCurrentScreen('otp');
           }}
@@ -142,9 +142,9 @@ export default function App() {
           canal={otpCanal}
           mode={otpOrigin}
           onBack={() => setCurrentScreen(otpOrigin === 'register' ? 'confirm_step3' : 'login')}
-          onVerify={() => {
+          onVerify={async () => {
             if (otpOrigin === 'register') {
-              mobileApiService.completarAlta();
+              await mobileApiService.completarAlta();
               setCurrentScreen('success');
             } else {
               setCurrentScreen('login_dni_step');

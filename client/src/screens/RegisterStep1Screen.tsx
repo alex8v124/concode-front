@@ -106,7 +106,9 @@ export const RegisterStep1Screen: React.FC<RegisterStep1ScreenProps> = ({
               {Boolean(formData.age) && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Edad / Sexo:</span>
-                  <span className="font-bold text-gray-900">{formData.age} años · {formData.gender === 'M' ? 'Masculino' : 'Femenino'}</span>
+                  <span className="font-bold text-gray-900">
+                    {formData.age} años · {formData.gender === 'F' || formData.gender === 'Femenino' ? 'Femenino' : 'Masculino'}
+                  </span>
                 </div>
               )}
             </div>

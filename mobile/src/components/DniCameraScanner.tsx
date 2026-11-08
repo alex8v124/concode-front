@@ -33,6 +33,7 @@ interface DniCameraScannerProps {
   onScanError: () => void;
   title?: string;
   validarConBackend?: boolean;
+  modo?: 'ALTA' | 'INGRESO';
 }
 
 type Estado = 'buscando' | 'validando' | 'error';
@@ -48,6 +49,7 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
   onScanError,
   title = 'Escanear DNI',
   validarConBackend = true,
+  modo = 'ALTA',
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -146,18 +148,6 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       verificado: false,
     };
 
-    // Consulta en tiempo real con la API de RENIEC a través del backend
-    try {
-      const datosReniec = await mobileApiService.consultarReniec(mrz.dni);
-      if (datosReniec?.nombres && datosReniec.nombres !== 'Vecino') {
-        desdeMrz.firstName = formatearNombre(datosReniec.nombres);
-        desdeMrz.lastName = formatearNombre(`${datosReniec.apellidoPaterno ?? ''} ${datosReniec.apellidoMaterno ?? ''}`.trim());
-        desdeMrz.verificado = true;
-      }
-    } catch (err) {
-      console.warn('Consulta RENIEC en escaneo no disponible:', err);
-    }
-
     if (!validarConBackend) {
       onScanSuccess(desdeMrz);
       onClose();
@@ -166,12 +156,29 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
 
     try {
       const respuesta = await mobileApiService.validarDni(mrz.dni, 'ESCANEO', mrz.fechaNacimiento, mrz.sexo);
+      if (modo === 'INGRESO') {
+        // Si validarDni tuvo éxito en modo INGRESO, significa que el DNI NO estaba registrado en usuarios
+        setMensajeError('Este DNI aún no tiene una cuenta registrada. Regístrate primero.');
+        setEstado('error');
+        return;
+      }
       if (respuesta?.datos) {
         const d = respuesta.datos;
-        const nombreValido = d.nombres && d.nombres !== 'Vecino' ? d.nombres : desdeMrz.firstName;
-        const apellidoValido = d.apellidoPaterno && d.apellidoPaterno !== 'Registrado'
-          ? `${d.apellidoPaterno ?? ''} ${d.apellidoMaterno ?? ''}`.trim()
+        let nombreValido = d.nombres && d.nombres !== 'Vecino' ? formatearNombre(d.nombres) : desdeMrz.firstName;
+        let apellidoValido = d.apellidoPaterno && d.apellidoPaterno !== 'Registrado'
+          ? formatearNombre(`${d.apellidoPaterno ?? ''} ${d.apellidoMaterno ?? ''}`.trim())
           : desdeMrz.lastName;
+
+        if (!d.nombres || d.nombres === 'Vecino') {
+          try {
+            const datosReniec = await mobileApiService.consultarReniec(mrz.dni);
+            if (datosReniec?.nombres && datosReniec.nombres !== 'Vecino') {
+              nombreValido = formatearNombre(datosReniec.nombres);
+              apellidoValido = formatearNombre(`${datosReniec.apellidoPaterno ?? ''} ${datosReniec.apellidoMaterno ?? ''}`.trim());
+            }
+          } catch {}
+        }
+
         onScanSuccess({
           ...desdeMrz,
           firstName: nombreValido,
@@ -184,7 +191,28 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
       }
       onClose();
     } catch (e) {
-      console.warn('Error en validación con backend, usando datos escaneados:', e);
+      if (e instanceof ErrorApi) {
+        if (modo === 'ALTA' && (e.codigo === 'DNI_REGISTRADO' || e.codigo === 'MENOR_DE_EDAD')) {
+          // ¡Bloquear doble registro!
+          setMensajeError(e.message || 'Este DNI ya está registrado en DeBarrio. Inicia sesión.');
+          setEstado('error');
+          return;
+        }
+        if (modo === 'INGRESO' && e.codigo === 'DNI_REGISTRADO') {
+          // En modo INGRESO, que el DNI ya esté registrado confirma que la cuenta existe
+          try {
+            const datosReniec = await mobileApiService.consultarReniec(mrz.dni);
+            if (datosReniec?.nombres && datosReniec.nombres !== 'Vecino') {
+              desdeMrz.firstName = formatearNombre(datosReniec.nombres);
+              desdeMrz.lastName = formatearNombre(`${datosReniec.apellidoPaterno ?? ''} ${datosReniec.apellidoMaterno ?? ''}`.trim());
+            }
+          } catch {}
+          onScanSuccess({ ...desdeMrz, verificado: true });
+          onClose();
+          return;
+        }
+      }
+      console.warn('Error en validación con backend:', e);
       if (desdeMrz.dni && desdeMrz.dni.length === 8) {
         onScanSuccess(desdeMrz);
         onClose();

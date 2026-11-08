@@ -9,7 +9,7 @@ interface Props {
   canal?: 'SMS' | 'WHATSAPP';
   mode?: 'login' | 'register';
   onBack: () => void;
-  onVerify: () => void;
+  onVerify: () => Promise<void> | void;
 }
 
 export const OtpScreen: React.FC<Props> = ({
@@ -70,8 +70,8 @@ export const OtpScreen: React.FC<Props> = ({
       const code = digits.join('');
       const resp = await mobileApiService.verificarCodigo(code, phone);
       if (resp.valido) {
+        await onVerify();
         setIsVerifying(false);
-        onVerify();
       } else {
         setIsVerifying(false);
         setErrorMessage(resp.mensaje || 'El código ingresado es incorrecto.');

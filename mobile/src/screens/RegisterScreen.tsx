@@ -128,7 +128,7 @@ export const RegisterScreen: React.FC<Props> = ({
                 {Boolean(userData.age) && (
                   <View style={styles.dataRow}>
                     <Text style={styles.dataLabel}>Edad / Sexo:</Text>
-                    <Text style={styles.dataValue}>{userData.age} años · {userData.gender === 'M' ? 'Masculino' : 'Femenino'}</Text>
+                    <Text style={styles.dataValue}>{userData.age} años · {userData.gender === 'F' || userData.gender === 'Femenino' ? 'Femenino' : 'Masculino'}</Text>
                   </View>
                 )}
               </View>
@@ -172,6 +172,7 @@ export const RegisterScreen: React.FC<Props> = ({
         <DniCameraScanner
           visible={isScannerOpen}
           validarConBackend={true}
+          modo="ALTA"
           onClose={() => setIsScannerOpen(false)}
           onScanSuccess={(data) => {
             onScanSuccess(data);

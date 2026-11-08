@@ -110,6 +110,7 @@ export const LoginDniStepScreen: React.FC<Props> = ({
         <DniCameraScanner
           visible={isScannerOpen}
           validarConBackend={true}
+          modo="INGRESO"
           title="Verificación 2FA · Escanea tu DNI"
           onClose={() => setIsScannerOpen(false)}
           onScanSuccess={(data) => {

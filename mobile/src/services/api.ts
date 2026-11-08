@@ -6,6 +6,7 @@ import {
   formatearCelularInternacional,
 } from '../utils/phone';
 
+declare const process: any;
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.5:3001/api/v1';
 
 let tokenTramiteActual: string | null = null;
@@ -154,16 +155,20 @@ export const mobileApiService = {
     return ultimoCodigoOtpEnviado;
   },
 
-  async solicitarCodigo(celularInput: string, canal: 'SMS' | 'WHATSAPP' = 'SMS') {
+  async solicitarCodigo(celularInput: string, canal: 'SMS' | 'WHATSAPP' = 'SMS', modo?: 'ALTA' | 'INGRESO') {
     const celular = limpiarDigitosCelularPeru(celularInput);
     if (!esCelularPeruValido(celular)) {
-      throw new ErrorApi('CELULAR_INVALIDO', 'Ingresa un número de celular peruano válido de 9 dígitos (empieza con 9).');
+      throw new ErrorApi('CELULAR_INVALIDO', 'Ingresa un n?mero de celular peruano v?lido de 9 d?gitos (empieza con 9).');
+    }
+
+    if (modo === 'INGRESO') {
+      tokenTramiteActual = null;
     }
 
     const celularFormateado = formatearCelularInternacional(celular);
 
     try {
-      if (tokenTramiteActual) {
+      if (tokenTramiteActual && modo !== 'INGRESO') {
         const res = await fetch(`${API_BASE}/auth/codigo`, {
           method: 'POST',
           headers: {
@@ -178,6 +183,13 @@ export const mobileApiService = {
           ultimoCodigoOtpEnviado = devCode;
           codigosLocalesPorCelular.set(celular, devCode);
           return { ...data, exito: true, celular, celularFormateado, canal, devCode };
+        }
+        if (res.status === 409 || res.status === 400) {
+          const errData = await res.json().catch(() => ({}));
+          throw new ErrorApi(
+            errData.codigo || 'CELULAR_REGISTRADO',
+            errData.mensaje || 'Este celular ya est? registrado en otra cuenta.'
+          );
         }
       }
 
@@ -202,7 +214,8 @@ export const mobileApiService = {
         };
       }
     } catch (e) {
-      console.warn('Fallo solicitar código en backend, generando código local:', e);
+      if (e instanceof ErrorApi) throw e;
+      console.warn('Fallo solicitar c?digo en backend, generando c?digo local:', e);
     }
 
     const codigoLocal = Math.floor(1000 + Math.random() * 9000).toString();
@@ -238,6 +251,10 @@ export const mobileApiService = {
           const data = await res.json();
           return { ...data, valido: true, celularVerificado: true };
         }
+        if (res.status === 400 || res.status === 409) {
+          const errData = await res.json().catch(() => ({}));
+          return { valido: false, mensaje: errData.mensaje || 'C?digo incorrecto.' };
+        }
       } else {
         const res = await fetch(`${API_BASE}/auth/ingreso/celular/verificar`, {
           method: 'POST',
@@ -256,11 +273,11 @@ export const mobileApiService = {
         }
         if (res.status === 400) {
           const errData = await res.json().catch(() => ({}));
-          return { valido: false, mensaje: errData.mensaje || 'Código incorrecto.' };
+          return { valido: false, mensaje: errData.mensaje || 'C?digo incorrecto.' };
         }
       }
     } catch (e) {
-      console.warn('Fallo verificar código en backend, verificando localmente:', e);
+      console.warn('Fallo verificar c?digo en backend, verificando localmente:', e);
     }
 
     const codigoEsperado = (celular && codigosLocalesPorCelular.get(celular)) || ultimoCodigoOtpEnviado;
@@ -270,7 +287,7 @@ export const mobileApiService = {
     }
     return {
       valido: esValido,
-      mensaje: esValido ? undefined : `Código incorrecto. Ingresa ${codigoEsperado} o 1234.`
+      mensaje: esValido ? undefined : `C?digo incorrecto. Ingresa ${codigoEsperado} o 1234.`
     };
   },
 
@@ -289,14 +306,22 @@ export const mobileApiService = {
         const session = await res.json();
         if (session.tokenAcceso) tokenAccesoActual = session.tokenAcceso;
         if (session.tokenRenovacion) tokenRenovacionActual = session.tokenRenovacion;
+        tokenTramiteActual = null;
         return session;
       }
+      if (res.status === 409 || res.status === 400) {
+        const errData = await res.json().catch(() => ({}));
+        throw new ErrorApi(
+          errData.codigo || 'ALTA_ERROR',
+          errData.mensaje || 'Este usuario o celular ya est? registrado.'
+        );
+      }
     } catch (e) {
+      if (e instanceof ErrorApi) throw e;
       console.warn('Fallo completar alta en backend:', e);
     }
     return { tokenAcceso: 'mock-access', tokenRenovacion: 'mock-refresh' };
   },
-
   // ==========================================
   // 2. FLUJO DE INGRESO (LOGIN) Y SESIONES
   // ==========================================
