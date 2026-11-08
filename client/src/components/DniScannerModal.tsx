@@ -238,8 +238,8 @@ export const DniScannerModal: React.FC<DniScannerModalProps> = ({
           dni: res.datos.dni || mrz.dni,
           firstName: res.datos.nombres || formatearNombre(mrz.nombres),
           lastName: `${res.datos.apellidoPaterno || mrz.apellidoPaterno} ${res.datos.apellidoMaterno || mrz.apellidoMaterno}`.trim(),
-          age: res.datos.edad || mrz.edad,
-          gender: res.datos.sexo === 'F' ? 'Femenino' : 'Masculino'
+          age: mrz.edad || res.datos.edad,
+          gender: (mrz.sexo || res.datos.sexo) === 'F' ? 'Femenino' : 'Masculino'
         });
         onClose();
         return;

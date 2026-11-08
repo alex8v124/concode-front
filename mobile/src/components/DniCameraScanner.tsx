@@ -204,7 +204,9 @@ export const DniCameraScanner: React.FC<DniCameraScannerProps> = ({
           ...desdeMrz,
           firstName: nombreValido,
           lastName: apellidoValido,
-          age: d.edad != null ? String(d.edad) : desdeMrz.age,
+          age: desdeMrz.age || (d.edad != null ? String(d.edad) : ''),
+          gender: desdeMrz.gender || (d.sexo === 'F' ? 'Femenino' : 'Masculino'),
+          fechaNacimiento: desdeMrz.fechaNacimiento,
           verificado: !!d.verificado,
         });
       } else {
